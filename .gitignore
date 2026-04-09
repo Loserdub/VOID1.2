@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+env/
+
+# Build output
+dist/
+build/
+out/
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.class
+*.pyc
+__pycache__/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editor files
+.idea/
+.vscode/
+*.suo
+*.user
+*.swp
+*.swo
+*~
+
+# Package manager lock files (optional – remove if you want to commit them)
+# package-lock.json
+# yarn.lock
