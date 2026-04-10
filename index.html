@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VØID 1.0 — Offline Audio Slicer & Remixer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #111111; --surface2: #1a1a1a; --border: #2a2a2a;
+    --accent: #c8f542; --accent2: #f5425a; --text: #f0ede8; --muted: #666;
+    --mono: 'Space Mono', monospace; --sans: 'Syne', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.4;
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 40px; border-bottom: 1px solid var(--border); position: sticky; top: 0;
+    background: var(--bg); z-index: 100;
+  }
+  .logo {
+    font-family: var(--sans); font-size: 26px; font-weight: 800; letter-spacing: -1px;
+    text-decoration: none; color: var(--text); cursor: pointer; transition: color .2s;
+  }
+  .logo:hover { color: var(--accent); }
+  .logo span { color: var(--accent); }
+
+  .tabs { display: flex; gap: 2px; background: var(--surface); border-radius: 8px; padding: 3px; }
+  .tab {
+    padding: 7px 18px; border-radius: 6px; font-size: 12px; font-weight: 700;
+    cursor: pointer; border: none; background: none; color: var(--muted); font-family: var(--sans);
+    transition: all .15s; letter-spacing: .04em;
+  }
+  .tab.active { background: var(--surface2); color: var(--text); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .stage-indicator { display: flex; gap: 6px; align-items: center; }
+  .stage-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background .3s; }
+  .stage-dot.active { background: var(--accent); }
+
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: flex; }
+
+  /* SLICER PANEL */
+  #panel-slicer { min-height: calc(100vh - 65px); }
+  .left { flex: 1; padding: 36px 40px; border-right: 1px solid var(--border); }
+  .right { width: 380px; padding: 36px; background: var(--surface); display: flex; flex-direction: column; gap: 22px; }
+
+  .section-title { font-size: 10px; font-weight: 700; letter-spacing: .15em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
+
+  .api-row { display: flex; gap: 8px; margin-bottom: 28px; }
+  .api-row input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: var(--mono); font-size: 12px; padding: 9px 12px; outline: none; transition: border-color .2s;
+  }
+  .api-row input:focus { border-color: var(--accent); }
+  .api-row input::placeholder { color: var(--muted); }
+
+  .dropzone {
+    border: 1.5px dashed var(--border); border-radius: 10px; padding: 36px;
+    text-align: center; cursor: pointer; transition: all .2s; margin-bottom: 20px; background: var(--surface);
+  }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: #111f00; }
+  .dropzone-icon { font-size: 28px; margin-bottom: 10px; }
+  .dropzone h3 { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+  .dropzone p { font-size: 12px; color: var(--muted); }
+
+  /* SLICE MODE SELECTOR */
+  .slice-modes { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+  .mode-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .mode-group-title { flex: 100%; font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+  .mode-btn {
+    position: relative;
+    padding: 5px 11px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+    font-family: var(--mono); transition: all .2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .mode-btn::before {
+    content: attr(data-formula);
+    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(5px);
+    background: #0a0a0a; border: 1px solid var(--border); color: var(--accent);
+    padding: 4px 8px; border-radius: 4px; font-family: var(--mono); font-size: 9px;
+    white-space: nowrap; opacity: 0; pointer-events: none; transition: all .2s ease;
+    z-index: 100; font-weight: normal; letter-spacing: 0; margin-bottom: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .mode-btn:hover::before {
+    opacity: 1; transform: translateX(-50%) translateY(0); border-color: var(--accent);
+  }
+  .mode-btn:hover { border-color: var(--muted); color: var(--text); transform: translateY(-1px); }
+  .mode-btn.on { border-color: var(--accent); color: var(--accent); background: #111f00; box-shadow: 0 4px 12px rgba(200, 245, 66, 0.1); transform: translateY(-1px); }
+  .mode-btn:active { transform: translateY(0); }
+
+  .file-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+  .file-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
+    padding: 10px 14px; position: relative; overflow: hidden;
+  }
+  .file-item .progress-bar { position: absolute; left: 0; top: 0; bottom: 0; background: #1a2800; transition: width .4s ease; z-index: 0; }
+  .file-item > * { position: relative; z-index: 1; }
+  .file-name { flex: 1; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .file-status { font-size: 10px; font-weight: 700; }
+  .file-status.ready { color: var(--accent); }
+  .file-status.processing { color: #f5a442; }
+  .file-status.done { color: var(--accent); }
+  .file-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 2px; }
+  .file-remove:hover { color: var(--accent2); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border-radius: 6px; font-family: var(--sans); font-size: 12px; font-weight: 700;
+    cursor: pointer; border: none; transition: all .15s; letter-spacing: .02em;
+  }
+  .btn-primary { background: var(--accent); color: #0a0a0a; }
+  .btn-primary:hover { background: #d9ff55; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-ghost:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  /* SLICE LIBRARY */
+  .slice-toolbar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .filter-btn {
+    padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 700; cursor: pointer;
+    border: 1px solid var(--border); background: none; color: var(--muted); font-family: var(--mono);
+  }
+  .filter-btn.active { border-color: var(--accent); color: var(--accent); }
+
+  .slice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; margin-bottom: 20px; }
+  .slice-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
+    padding: 9px 11px; cursor: pointer; transition: all .2s cubic-bezier(0.25, 0.46, 0.45, 0.94); user-select: none; position: relative;
+  }
+  .slice-card:hover { border-color: var(--accent); background: #111f00; transform: translateY(-2px) scale(1.02); box-shadow: 0 6px 16px rgba(0,0,0,0.4); z-index: 10; }
+  .slice-card.selected { border-color: var(--accent); background: #1a2e00; box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(200, 245, 66, 0.2); transform: translateY(-2px) scale(1.02); z-index: 10; }
+  .slice-card .slice-type { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .slice-card .slice-name { font-size: 11px; font-weight: 700; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slice-card .slice-tags { display: flex; gap: 3px; flex-wrap: wrap; }
+  .tag { font-family: var(--mono); font-size: 9px; padding: 1px 4px; border-radius: 3px; background: var(--surface2); color: var(--muted); }
+  .tag.bpm { background: #1a1f00; color: var(--accent); }
+  .tag.type { background: #1a0010; color: #f542a0; }
+  .slice-dl {
+    position: absolute; top: 6px; right: 6px; background: none; border: none;
+    color: var(--muted); cursor: pointer; font-size: 13px; opacity: 0; transition: opacity .15s;
+    padding: 2px;
+  }
+  .slice-card:hover .slice-dl { opacity: 1; }
+  .slice-dl:hover { color: var(--accent); }
+
+  .waveform-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 20px; }
+  canvas.waveform { width: 100%; height: 56px; display: block; border-radius: 3px; }
+  audio.preview { width: 100%; margin-top: 10px; accent-color: var(--accent); }
+
+  /* REMIXER RIGHT PANEL */
+  textarea.vibe-input {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+    color: var(--text); font-family: var(--sans); font-size: 13px; padding: 12px 14px;
+    resize: vertical; min-height: 75px; outline: none; transition: border-color .2s; line-height: 1.5;
+  }
+  textarea.vibe-input:focus { border-color: var(--accent); }
+  textarea.vibe-input::placeholder { color: var(--muted); }
+
+  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .setting-label { font-size: 11px; color: var(--muted); font-weight: 700; white-space: nowrap; }
+  .setting-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .setting-val { font-family: var(--mono); font-size: 10px; color: var(--accent); min-width: 34px; text-align: right; }
+  select.setting-select {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    color: var(--text); font-family: var(--mono); font-size: 11px; padding: 5px 8px; outline: none;
+  }
+
+  .output-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .output-box h3 { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .arrangement-line { display: flex; gap: 0; height: 28px; border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
+  .arr-block {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: default;
+  }
+  .arr-block:hover { opacity: .75; }
+  .ai-log {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+    font-family: var(--mono); font-size: 10px; color: #4af; padding: 10px 12px;
+    line-height: 1.8; max-height: 160px; overflow-y: auto; white-space: pre-wrap;
+  }
+  .empty-state { text-align: center; padding: 40px 16px; color: var(--muted); }
+  .empty-state p { font-size: 12px; line-height: 1.7; }
+  .divider { border: none; border-top: 1px solid var(--border); }
+
+  /* PAD PANEL */
+  #panel-pads {
+    flex-direction: column; padding: 36px 40px; min-height: calc(100vh - 65px);
+  }
+  .pad-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .pad-header h2 { font-size: 18px; font-weight: 800; }
+  .pad-header p { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .pad-layout { display: grid; grid-template-columns: 1fr 320px; gap: 32px; }
+
+  .pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .pad {
+    aspect-ratio: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .08s; user-select: none; position: relative; overflow: hidden;
+    min-height: 100px;
+  }
+  .pad:hover { border-color: var(--muted); }
+  .pad.loaded { border-color: var(--border); }
+  .pad.active { background: #1a2e00 !important; border-color: var(--accent) !important; transform: scale(0.96); }
+  .pad.dragover-pad { border-color: var(--accent); background: #111f00; border-style: dashed; }
+  .pad .pad-key { font-family: var(--mono); font-size: 10px; color: var(--muted); position: absolute; top: 8px; left: 10px; }
+  .pad .pad-name { font-size: 11px; font-weight: 700; text-align: center; padding: 0 8px; line-height: 1.3; }
+  .pad .pad-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 4px; }
+  .pad .pad-color { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; border-radius: 0 0 9px 9px; }
+  .pad .pad-empty { font-size: 20px; color: var(--border); }
+  .pad .pad-wave { position: absolute; inset: 0; opacity: .15; }
+
+  .pad-sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .pad-info { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .pad-info h3 { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+  .record-controls { display: flex; gap: 8px; align-items: center; }
+  .rec-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all .15s;
+  }
+  .rec-btn.record { background: var(--accent2); color: white; }
+  .rec-btn.record:hover { background: #ff2244; }
+  .rec-btn.record.recording { animation: pulse-rec 1s ease-in-out infinite; }
+  .rec-btn.stop { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  @keyframes pulse-rec { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+  .slice-drop-list { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .slice-drop-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    cursor: grab; font-size: 11px; font-weight: 700; transition: border-color .12s;
+  }
+  .slice-drop-item:hover { border-color: var(--muted); }
+  .slice-drop-item:active { cursor: grabbing; }
+  .slice-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .slice-drop-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-left: auto; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 14px; height: 14px; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* SMART MODE TOGGLE */
+  .smart-toggle { display: flex; align-items: center; gap: 10px; }
+  .smart-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--muted); transition: color .3s; font-family: var(--mono); }
+  .smart-label.on { color: var(--accent); }
+  .toggle-track {
+    width: 40px; height: 22px; border-radius: 11px; background: var(--surface2);
+    border: 1px solid var(--border); position: relative; cursor: pointer;
+    transition: background .25s, border-color .25s;
+  }
+  .toggle-track.on { background: #1a2e00; border-color: var(--accent); }
+  .toggle-thumb {
+    width: 16px; height: 16px; border-radius: 50%; background: var(--muted);
+    position: absolute; top: 2px; left: 2px; transition: transform .25s, background .25s;
+  }
+  .toggle-track.on .toggle-thumb { transform: translateX(18px); background: var(--accent); }
+
+  /* smart-only sections hide when smart mode is off */
+  .smart-only { transition: opacity .3s, max-height .4s; overflow: hidden; max-height: 600px; opacity: 1; }
+  .smart-off .smart-only { opacity: 0; max-height: 0; pointer-events: none; }
+  .smart-off .right { display: none; }
+
+  /* local-only sections show only when smart is off */
+  .local-only { display: none; }
+  .smart-off .local-only { display: block; }
+  .bpm-edit { font-family: var(--mono); background: none; border: none; color: var(--accent); cursor: pointer; text-decoration: underline; margin-left: 5px; font-size: 10px; }
+
+  /* TUTORIAL OVERLAY */
+  .tut-overlay {
+    position: fixed; inset: 0; background: rgba(10,10,10,0.85); backdrop-filter: blur(8px);
+    z-index: 9999; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .4s ease;
+  }
+  .tut-overlay.active { opacity: 1; pointer-events: auto; }
+  .tut-modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    width: 440px; max-width: 90%; padding: 32px 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    transform: translateY(20px) scale(0.95); transition: all .4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    position: relative; overflow: hidden;
+  }
+  .tut-overlay.active .tut-modal { transform: translateY(0) scale(1); }
+  .tut-modal::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), #42f5a4, var(--accent2));
+  }
+  .tut-step { display: none; flex-direction: column; gap: 16px; animation: tutFadeIn .3s ease forwards; }
+  .tut-step.active { display: flex; }
+  @keyframes tutFadeIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+  .tut-title { font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+  .tut-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; }
+  .tut-text { font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .tut-text strong { color: var(--text); }
+  .tut-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 20px; }
+  .tut-progress { display: flex; gap: 6px; }
+  .tut-pdot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: background .3s; }
+  .tut-pdot.active { background: var(--accent); }
+  .btn-tut {
+    padding: 8px 16px; border-radius: 6px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+    cursor: pointer; border: none; transition: all .15s;
+  }
+  .btn-tut.primary { background: var(--text); color: var(--bg); }
+  .btn-tut.primary:hover { background: white; transform: translateY(-1px); }
+  .btn-tut.ghost { background: transparent; color: var(--muted); }
+  .btn-tut.ghost:hover { color: var(--text); }
+
+  /* ABOUT OVERLAY */
+  .about-btn {
+    position: fixed; bottom: 20px; right: 26px; font-size: 10px; font-family: var(--mono);
+    color: var(--muted); cursor: pointer; border: none; background: none; transition: color .2s;
+    text-transform: uppercase; letter-spacing: 0.1em; z-index: 100;
+  }
+  .about-btn:hover { color: var(--accent); }
+  .about-overlay {
+    position: fixed; inset: 0; background: rgba(10,10,10,0.85); backdrop-filter: blur(8px);
+    z-index: 9999; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .3s ease;
+  }
+  .about-overlay.active { opacity: 1; pointer-events: auto; }
+  .about-modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; width: 300px;
+    padding: 30px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    transform: scale(0.95); transition: all .3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .about-overlay.active .about-modal { transform: scale(1); }
+  .about-modal h3 { font-size: 14px; margin-bottom: 8px; color: var(--text); }
+  .about-modal p { font-size: 11px; color: var(--muted); line-height: 1.6; font-family: var(--mono); }
+  .about-modal a { color: var(--accent); text-decoration: none; }
+  .about-modal a:hover { text-decoration: underline; }
+  .about-close {
+    margin-top: 20px; padding: 6px 16px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text); transition: all .15s; font-family: var(--sans);
+  }
+  .about-close:hover { border-color: var(--muted); background: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="https://www.jray.me" target="_blank" rel="noopener">VØID <span>1.0</span></a>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('slicer')">Slicer</button>
+    <button class="tab" onclick="switchTab('pads')" id="tab-pads">Pads</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:20px">
+    <span style="font-size:11px;color:var(--muted);font-family:var(--mono)" id="status-text">ready</span>
+    <div class="stage-indicator">
+      <div class="stage-dot active" id="dot-1"></div>
+      <div style="width:16px;height:1px;background:var(--border)"></div>
+      <div class="stage-dot" id="dot-2"></div>
+    </div>
+  </div>
+</header>
+
+<!-- SLICER PANEL -->
+<div class="panel active" id="panel-slicer">
+  <div class="left">
+
+    <div class="section-title">1 — drop your songs</div>
+    <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+      <div class="dropzone-icon">⟁</div>
+      <h3>Drop audio files here</h3>
+      <p>MP3, WAV, M4A · up to 10 songs</p>
+      <input type="file" id="file-input" multiple accept="audio/*" style="display:none" onchange="handleFiles(this.files)">
+    </div>
+
+    <div class="section-title">Slice granularity</div>
+    <div class="slice-modes" id="slice-modes">
+      <div class="mode-group">
+        <div class="mode-group-title">Phrases & Bars</div>
+        <button class="mode-btn" data-mode="phrase8" data-formula="Δt = 32 × (60/BPM)">8-bar phrase</button>
+        <button class="mode-btn on" data-mode="phrase4" data-formula="Δt = 16 × (60/BPM)">4-bar phrase</button>
+        <button class="mode-btn on" data-mode="phrase2" data-formula="Δt = 8 × (60/BPM)">2-bar phrase</button>
+        <button class="mode-btn on" data-mode="bar1" data-formula="Δt = 4 × (60/BPM)">1-bar</button>
+        <button class="mode-btn on" data-mode="halfbar" data-formula="Δt = 2 × (60/BPM)">½-bar</button>
+      </div>
+      <div class="mode-group">
+        <div class="mode-group-title">Beats & Chops</div>
+        <button class="mode-btn on" data-mode="beat" data-formula="Δt = (60/BPM)">1-beat</button>
+        <button class="mode-btn" data-mode="eighth" data-formula="Δt = 0.5 × (60/BPM)">⅛-note chops</button>
+        <button class="mode-btn" data-mode="sixteenth" data-formula="Δt = 0.25 × (60/BPM)">1/16-chops</button>
+        <button class="mode-btn" data-mode="triplet4" data-formula="Δt = ⅔ × (60/BPM)">1/4 Triplets</button>
+        <button class="mode-btn" data-mode="triplet8" data-formula="Δt = ⅓ × (60/BPM)">1/8 Triplets</button>
+      </div>
+      <div class="mode-group">
+        <div class="mode-group-title">Hits & Isolation</div>
+        <button class="mode-btn" data-mode="downbeat" data-formula="t_snap = ⌊t/L_bar⌋ × L_bar">Downbeats only</button>
+        <button class="mode-btn on" data-mode="transient" data-formula="Σ|x[n]| > θ_thresh">Transient hits</button>
+        <button class="mode-btn" data-mode="silence" data-formula="∫|x(t)|dt < θ_min | Δt > τ">Silence separation</button>
+        <button class="mode-btn" data-mode="freqLow" data-formula="LPF(ƒ < 150Hz) → Transient">Low-End (Kicks/Sub)</button>
+        <button class="mode-btn" data-mode="freqHigh" data-formula="HPF(ƒ > 4kHz) → Transient">High-End (Hats/Snare)</button>
+      </div>
+    </div>
+
+    <div class="file-list" id="file-list"></div>
+
+    <div class="btn-row" style="margin-bottom:28px">
+      <button class="btn btn-primary" id="slice-btn" disabled onclick="sliceAll()">
+        <span id="slice-btn-inner">Slice all songs</span>
+      </button>
+      <button class="btn btn-ghost" onclick="clearAll()" id="clear-btn" style="display:none">Clear</button>
+    </div>
+
+    <!-- SLICE LIBRARY -->
+    <div id="stage-2" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="section-title" style="margin:0">2 — slice library (<span id="slice-count">0</span>)</div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px" id="zip-btn" onclick="downloadAllZip()">
+            <span id="zip-btn-inner">Download all ZIP</span>
+          </button>
+        </div>
+      </div>
+      <div class="slice-toolbar" id="filter-bar">
+        <button class="filter-btn active" onclick="filterSlices('all',this)">All</button>
+        <button class="filter-btn" onclick="filterSlices('phrase',this)">Phrases</button>
+        <button class="filter-btn" onclick="filterSlices('bar',this)">Bars</button>
+        <button class="filter-btn" onclick="filterSlices('beat',this)">Beats</button>
+        <button class="filter-btn" onclick="filterSlices('hit',this)">Hits</button>
+        <button class="filter-btn" onclick="filterSlices('eighth',this)">⅛-chops</button>
+      </div>
+      <div class="slice-grid" id="slice-grid"></div>
+      <div class="waveform-wrap" id="waveform-wrap" style="display:none">
+        <canvas class="waveform" id="waveform-canvas" height="56"></canvas>
+        <audio class="preview" id="preview-audio" controls></audio>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:11px" id="dl-selected-btn" onclick="downloadSelected()">Download slice</button>
+          <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:11px" onclick="sendToPad()">Send to pad ↗</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- RIGHT: LOCAL REMIXER -->
+  <div class="right" id="right-panel">
+    <div class="section-title">Local remixer</div>
+    <div>
+      <div class="setting-row">
+        <span class="setting-label">Structure</span>
+        <select class="setting-select" id="local-structure">
+          <option value="random">Random</option>
+          <option value="linear">Linear (song order)</option>
+          <option value="energy">Energy build</option>
+          <option value="section">Section-aware</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Target length</span>
+        <input type="range" min="30" max="240" value="90" step="15" id="local-length-slider" oninput="document.getElementById('local-length-val').textContent=this.value+'s'">
+        <span class="setting-val" id="local-length-val">90s</span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Crossfade</span>
+        <input type="range" min="0" max="4" value="1" step="0.5" id="local-fade-slider" oninput="document.getElementById('local-fade-val').textContent=this.value+'s'">
+        <span class="setting-val" id="local-fade-val">1s</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="local-remix-btn" onclick="buildLocalRemix()" style="width:100%;justify-content:center" disabled>
+      <span id="local-remix-btn-inner">Auto remix</span>
+    </button>
+    <hr class="divider">
+    <div id="local-remix-output">
+      <div class="empty-state"><p>Slice your songs first,<br>then select a structure<br>and hit auto remix.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAD PANEL -->
+<div class="panel" id="panel-pads">
+  <div class="pad-header">
+    <div>
+      <h2>Pad player</h2>
+      <p>Drag slices onto pads · play with keyboard keys A–P · record your performance</p>
+    </div>
+    <div class="record-controls">
+      <button class="btn btn-ghost" onclick="exportDrumRack()" id="drumrack-btn" style="padding:6px 14px;font-size:11px;margin-right:12px">
+        <span id="drumrack-btn-inner">↓ Export Ableton Drum Rack</span>
+      </button>
+      <button class="rec-btn record" id="rec-btn" onclick="toggleRecord()" title="Record">●</button>
+      <button class="rec-btn stop" onclick="stopAndExport()" title="Stop & export">■</button>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="rec-status">not recording</span>
+    </div>
+  </div>
+  <div class="pad-layout">
+    <div class="pad-grid" id="pad-grid"></div>
+    <div class="pad-sidebar">
+      <div class="pad-info">
+        <h3>Loaded pad</h3>
+        <div id="pad-detail" style="font-size:12px;color:var(--muted)">Click a pad to see details</div>
+      </div>
+      <div class="pad-info" style="flex:1">
+        <h3>Slice library — drag to pad</h3>
+        <div class="slice-drop-list" id="slice-drop-list">
+          <p style="font-size:11px;color:var(--muted)">Slice some songs first</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+let files = [];
+let slices = [];
+let selectedSlice = null;
+let currentFilter = 'all';
+let remixPlan = null;
+let pads = Array(16).fill(null);
+let isRecording = false;
+let recordedEvents = [];
+let recordStartTime = 0;
+let recDestination = null;
+let recMediaRecorder = null;
+let recChunks = [];
+const PAD_KEYS = ['a','s','d','f','g','h','j','k','q','w','e','r','t','y','u','i'];
+const PAD_COLORS = ['#c8f542','#f5425a','#42c8f5','#f5a442','#a442f5','#42f5a4','#f542d4','#4287f5','#f5c842','#42f5e8','#f58542','#8542f5','#f5f542','#f5426b','#42f5a4','#5542f5'];
+
+function buildLocalRemix() {
+  if (slices.length === 0) return;
+  const structure = document.getElementById('local-structure').value;
+  const targetLen = parseInt(document.getElementById('local-length-slider').value);
+  const fadeTime = parseFloat(document.getElementById('local-fade-slider').value);
+
+  let pool = slices.filter(s => s.type === 'phrase' || s.type === 'bar');
+  if (pool.length === 0) pool = [...slices];
+
+  let ordered = [];
+  if (structure === 'linear') {
+    ordered = [...pool].sort((a,b) => a.start - b.start);
+  } else if (structure === 'energy') {
+    const intro = pool.filter(s => s.section === 'intro');
+    const build = pool.filter(s => s.section === 'build');
+    const drop = pool.filter(s => s.section === 'drop');
+    const outro = pool.filter(s => s.section === 'outro');
+    ordered = [...shuffle(intro), ...shuffle(build), ...shuffle(drop), ...shuffle(outro)];
+    if (ordered.length === 0) ordered = shuffle([...pool]);
+  } else if (structure === 'section') {
+    const groups = {};
+    pool.forEach(s => { if (!groups[s.section]) groups[s.section] = []; groups[s.section].push(s); });
+    const order = ['intro','build','drop','outro'];
+    order.forEach(sec => { if (groups[sec]) ordered.push(...shuffle(groups[sec])); });
+    if (ordered.length === 0) ordered = shuffle([...pool]);
+  } else {
+    ordered = shuffle([...pool]);
+  }
+
+  let arrangement = [], t = 0, i = 0;
+  while (t < targetLen && i < ordered.length * 3) {
+    const s = ordered[i % ordered.length];
+    arrangement.push({ slice: s, startTime: t });
+    t += Math.max(0.1, s.duration - fadeTime);
+    i++;
+  }
+
+  renderLocalRemix(arrangement, fadeTime);
+}
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+async function renderLocalRemix(arrangement, fadeTime) {
+  if (!actx) actx = new AudioContext();
+  const btn = document.getElementById('local-remix-btn');
+  btn.disabled = true;
+  document.getElementById('local-remix-btn-inner').innerHTML = '<span class="spinner"></span> Rendering...';
+
+  let maxEnd = 0;
+  arrangement.forEach(e => maxEnd = Math.max(maxEnd, e.startTime + e.slice.duration));
+  maxEnd += 2;
+
+  const offCtx = new OfflineAudioContext(2, Math.ceil(maxEnd * actx.sampleRate), actx.sampleRate);
+  for (const entry of arrangement) {
+    const s = entry.slice;
+    const src = offCtx.createBufferSource(); src.buffer = s.buffer;
+    const gain = offCtx.createGain();
+    const st = entry.startTime, d = s.duration;
+    const fade = Math.min(fadeTime, d * 0.3);
+    gain.gain.setValueAtTime(0, st);
+    gain.gain.linearRampToValueAtTime(0.9, st + fade);
+    gain.gain.setValueAtTime(0.9, st + d - fade);
+    gain.gain.linearRampToValueAtTime(0, st + d);
+    src.connect(gain); gain.connect(offCtx.destination);
+    src.start(st); src.stop(st + d);
+  }
+
+  const rendered = await offCtx.startRendering();
+  const blob = bufferToWavBlob(rendered);
+  const url = URL.createObjectURL(blob);
+
+  const colors = PAD_COLORS;
+  const blocks = arrangement.map((e, i) => {
+    const w = (e.slice.duration / rendered.duration * 100).toFixed(1);
+    const col = colors[i % colors.length];
+    return `<div class="arr-block" style="width:${w}%;background:${col}20;border-right:1px solid ${col}40;color:${col}" title="${e.slice.source} · ${e.slice.type}">${(e.slice.type||'?')[0].toUpperCase()}</div>`;
+  }).join('');
+
+  document.getElementById('local-remix-output').innerHTML = `
+    <div class="arrangement-line" style="margin-bottom:8px">${blocks}</div>
+    <p style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:8px">${arrangement.length} slices · ${Math.round(rendered.duration)}s · local render</p>
+    <audio controls src="${url}" style="width:100%;margin-bottom:8px;accent-color:var(--accent)"></audio>
+    <a href="${url}" download="void_local_remix.wav" class="btn btn-ghost" style="font-size:11px;padding:7px 14px;text-decoration:none">Download WAV</a>`;
+
+  btn.disabled = false;
+  document.getElementById('local-remix-btn-inner').textContent = 'Auto remix';
+  setStatus('local remix ready');
+}
+
+function setStatus(msg) { document.getElementById('status-text').textContent = msg; }
+
+window.onload = () => {
+  setupDrop(); setupPads(); setupModeButtons(); initTutorial();
+  document.addEventListener('keydown', handlePadKey);
+};
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  if (tab === 'slicer') {
+    document.getElementById('panel-slicer').classList.add('active');
+    document.querySelectorAll('.tab')[0].classList.add('active');
+  } else {
+    document.getElementById('panel-pads').classList.add('active');
+    document.querySelectorAll('.tab')[1].classList.add('active');
+    renderPadSliceList();
+  }
+}
+
+function setupModeButtons() {
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => btn.classList.toggle('on'));
+  });
+}
+
+function getActiveModes() {
+  return Array.from(document.querySelectorAll('.mode-btn.on')).map(b => b.dataset.mode);
+}
+
+function setupDrop() {
+  const dz = document.getElementById('dropzone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+}
+
+function handleFiles(fileList) {
+  for (const f of fileList) {
+    if (files.length >= 10) break;
+    if (!f.type.startsWith('audio/')) continue;
+    if (files.find(x => x.file.name === f.name)) continue;
+    const id = Date.now() + Math.random();
+    files.push({ id, file: f, status: 'ready', bpm: null });
+    renderFileItem(files[files.length-1]);
+  }
+  if (files.length > 0) {
+    document.getElementById('slice-btn').disabled = false;
+    document.getElementById('clear-btn').style.display = '';
+  }
+}
+
+function updateBPM(id) {
+  const item = files.find(f => f.id == id);
+  if (!item) return;
+  const newBpm = prompt("Enter correct BPM:", item.bpm || 120);
+  if (newBpm && !isNaN(newBpm)) {
+    item.manualBpm = parseFloat(newBpm);
+    item.bpm = item.manualBpm;
+    document.getElementById('meta-' + item.id).innerHTML = `${Math.round(item.duration||0)}s · ${item.bpm} BPM <button class="bpm-edit" onclick="updateBPM('${item.id}')">edit</button>`;
+    if (slices.length > 0) sliceAll(); // reslice if we already sliced
+  }
+}
+
+function renderFileItem(item) {
+  const list = document.getElementById('file-list');
+  const el = document.createElement('div');
+  el.className = 'file-item'; el.id = 'file-' + item.id;
+  
+  // if not sliced yet, we don't have duration.
+  let metaHtml = '—';
+  if (item.duration && item.bpm) {
+    metaHtml = `${Math.round(item.duration)}s · ${item.bpm} BPM <button class="bpm-edit" onclick="updateBPM('${item.id}')">edit</button>`;
+  }
+
+  el.innerHTML = `<div class="progress-bar" id="prog-${item.id}" style="width:0%"></div>
+    <span class="file-name">${item.file.name.replace(/\.[^.]+$/,'')}</span>
+    <span class="file-meta" id="meta-${item.id}">${metaHtml}</span>
+    <span class="file-status ready" id="stat-${item.id}">ready</span>
+    <button class="file-remove" onclick="removeFile('${item.id}')">✕</button>`;
+  list.appendChild(el);
+}
+
+function removeFile(id) {
+  files = files.filter(f => String(f.id) !== String(id));
+  const el = document.getElementById('file-' + id);
+  if (el) el.remove();
+  if (files.length === 0) document.getElementById('slice-btn').disabled = true;
+}
+
+function clearAll() {
+  files = []; slices = [];
+  document.getElementById('file-list').innerHTML = '';
+  document.getElementById('slice-grid').innerHTML = '';
+  document.getElementById('slice-count').textContent = '0';
+  document.getElementById('stage-2').style.display = 'none';
+  document.getElementById('slice-btn').disabled = true;
+  document.getElementById('clear-btn').style.display = 'none';
+  document.getElementById('remix-output').innerHTML = `<div class="empty-state"><p>Slice your songs first,<br>then select a structure<br>and hit auto remix.</p></div>`;
+  setStatus('cleared');
+}
+
+async function sliceAll() {
+  if (!actx) actx = new AudioContext();
+  const btn = document.getElementById('slice-btn');
+  btn.disabled = true;
+  document.getElementById('slice-btn-inner').innerHTML = '<span class="spinner"></span> Slicing...';
+  slices = [];
+  const modes = getActiveModes();
+
+  for (const item of files) {
+    document.getElementById('stat-' + item.id).textContent = 'processing';
+    document.getElementById('stat-' + item.id).className = 'file-status processing';
+    document.getElementById('prog-' + item.id).style.width = '20%';
+    try {
+      if (!item.audioBuffer) {
+        const buf = await item.file.arrayBuffer();
+        document.getElementById('prog-' + item.id).style.width = '50%';
+        const audio = await actx.decodeAudioData(buf);
+        item.duration = audio.duration;
+        item.audioBuffer = audio;
+      }
+      
+      if (!item.manualBpm) {
+        item.bpm = estimateBPM(item.audioBuffer);
+      }
+      
+      document.getElementById('meta-' + item.id).innerHTML = `${Math.round(item.duration)}s · ${item.bpm} BPM <button class="bpm-edit" onclick="updateBPM('${item.id}')">edit</button>`;
+      document.getElementById('prog-' + item.id).style.width = '75%';
+      
+      const itemSlices = await extractSlices(item.audioBuffer, item.bpm, item.file.name.replace(/\.[^.]+$/,''), item.id, modes);
+      slices.push(...itemSlices);
+      document.getElementById('prog-' + item.id).style.width = '100%';
+      document.getElementById('stat-' + item.id).textContent = `${itemSlices.length} slices`;
+      document.getElementById('stat-' + item.id).className = 'file-status done';
+    } catch(e) {
+      document.getElementById('stat-' + item.id).textContent = 'error';
+      document.getElementById('stat-' + item.id).style.color = 'var(--accent2)';
+    }
+  }
+
+  renderSliceLibrary();
+  document.getElementById('stage-2').style.display = '';
+  document.getElementById('slice-count').textContent = slices.length;
+  document.getElementById('local-remix-btn').disabled = false;
+  document.getElementById('slice-btn-inner').textContent = 'Re-slice';
+  btn.disabled = false;
+  document.getElementById('dot-2').classList.add('active');
+  setStatus(`${slices.length} slices ready`);
+}
+
+function estimateBPM(audioBuffer) {
+  const data = audioBuffer.getChannelData(0);
+  const sr = audioBuffer.sampleRate;
+  const step = Math.floor(sr * 0.01);
+  let energy = [];
+  for (let i = 0; i < data.length - step; i += step) {
+    let e = 0; for (let j = 0; j < step; j++) e += data[i+j]*data[i+j];
+    energy.push(e / step);
+  }
+  let beats = 0, interval = 0;
+  for (let i = 1; i < energy.length-1; i++) {
+    if (energy[i] > energy[i-1]*1.3 && energy[i] > energy[i+1]*1.05) {
+      if (interval === 0) interval = i;
+      else if (i - interval > 20) { beats++; interval = i; }
+    }
+  }
+  const bpm = Math.round(beats / (audioBuffer.duration / 60));
+  return (bpm < 60 || bpm > 200) ? 120 : bpm;
+}
+
+async function extractSlices(audioBuffer, bpm, sourceName, sourceId, modes) {
+  const sr = audioBuffer.sampleRate;
+  const beatLen = 60 / bpm;
+  const barLen = beatLen * 4;
+  const dur = audioBuffer.duration;
+  const result = [];
+  const safeName = sourceName.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+  const addSlice = (start, end, type, label, idx, srcBuffer = audioBuffer) => {
+    end = Math.min(end, dur);
+    const len = end - start;
+    if (len < 0.1) return;
+    const ch = srcBuffer.numberOfChannels;
+    const buf = actx.createBuffer(ch, Math.max(1, Math.floor(len * sr)), sr);
+    for (let c = 0; c < ch; c++) {
+      const src = srcBuffer.getChannelData(c);
+      const dst = buf.getChannelData(c);
+      const offset = Math.floor(start * sr);
+      for (let i = 0; i < buf.length; i++) dst[i] = src[offset + i] || 0;
+      // fade in/out to avoid clicks
+      const fade = Math.min(128, Math.floor(buf.length * 0.05));
+      for (let i = 0; i < fade; i++) { dst[i] *= i/fade; dst[buf.length-1-i] *= i/fade; }
+    }
+    const section = start < dur*0.2 ? 'intro' : start < dur*0.5 ? 'build' : start < dur*0.8 ? 'drop' : 'outro';
+    const filename = `${safeName}_${type}_${String(idx).padStart(3,'0')}.wav`;
+    result.push({ id: `${sourceId}_${type}_${Math.round(start*100)}`, source: sourceName, sourceId, type, label, start, end, duration: len, bpm, section, buffer: buf, filename });
+  };
+
+  if (modes.includes('phrase8')) for (let s=0,i=0; s+barLen*8<=dur; s+=barLen*8,i++) addSlice(s,s+barLen*8,'phrase',`${sourceName} · 8-bar`,i);
+  if (modes.includes('phrase4')) for (let s=0,i=0; s+barLen*4<=dur; s+=barLen*4,i++) addSlice(s,s+barLen*4,'phrase',`${sourceName} · 4-bar`,i);
+  if (modes.includes('phrase2')) for (let s=0,i=0; s+barLen*2<=dur; s+=barLen*2,i++) addSlice(s,s+barLen*2,'phrase',`${sourceName} · 2-bar`,i);
+  if (modes.includes('bar1')) for (let s=0,i=0; s+barLen<=dur; s+=barLen,i++) addSlice(s,s+barLen,'bar',`${sourceName} · 1-bar`,i);
+  if (modes.includes('halfbar')) for (let s=0,i=0; s+barLen*0.5<=dur; s+=barLen*0.5,i++) addSlice(s,s+barLen*0.5,'bar',`${sourceName} · ½-bar`,i);
+  if (modes.includes('beat')) for (let s=0,i=0; s+beatLen<=dur; s+=beatLen,i++) addSlice(s,s+beatLen,'beat',`${sourceName} · beat`,i);
+  if (modes.includes('eighth')) for (let s=0,i=0; s+beatLen*0.5<=dur; s+=beatLen*0.5,i++) addSlice(s,s+beatLen*0.5,'eighth',`${sourceName} · ⅛`,i);
+  if (modes.includes('sixteenth')) for (let s=0,i=0; s+beatLen*0.25<=dur; s+=beatLen*0.25,i++) addSlice(s,s+beatLen*0.25,'sixteenth',`${sourceName} · 1/16`,i);
+  if (modes.includes('triplet4')) for (let s=0,i=0; s+beatLen*(2/3)<=dur; s+=beatLen*(2/3),i++) addSlice(s,s+beatLen*(2/3),'triplet',`${sourceName} · 1/4T`,i);
+  if (modes.includes('triplet8')) for (let s=0,i=0; s+beatLen*(1/3)<=dur; s+=beatLen*(1/3),i++) addSlice(s,s+beatLen*(1/3),'triplet',`${sourceName} · 1/8T`,i);
+  if (modes.includes('downbeat')) for (let s=0,i=0; s+barLen<=dur; s+=barLen,i++) addSlice(s,s+beatLen,'downbeat',`${sourceName} · downbeat`,i);
+
+  const getHits = (buf, threshold, type, label) => {
+    const data = buf.getChannelData(0);
+    let lastHit = -1, hitIdx = 0;
+    for (let i = 1; i < data.length-1; i++) {
+      const t = i / sr;
+      if (Math.abs(data[i]) > threshold && Math.abs(data[i]) > Math.abs(data[i-1])*1.8 && t - lastHit > 0.15) {
+        const snap = Math.round(t / (beatLen*0.25)) * (beatLen*0.25);
+        addSlice(snap, snap+beatLen*0.5, type, label, hitIdx++, buf);
+        lastHit = t; i += Math.floor(sr*0.1);
+      }
+    }
+  };
+
+  if (modes.includes('transient')) getHits(audioBuffer, 0.55, 'hit', `${sourceName} · hit`);
+
+  if (modes.includes('silence')) {
+    const data = audioBuffer.getChannelData(0);
+    const threshold = 0.05; 
+    let isSilent = true; let startT = 0; let idx = 0;
+    for (let i = 0; i < data.length; i++) {
+      const vol = Math.abs(data[i]);
+      if (isSilent && vol > threshold) { isSilent = false; startT = i/sr; }
+      else if (!isSilent && vol <= threshold) {
+        // Look ahead to check if it's sustained silence
+        let silentCount = 0;
+        for (let j = 0; j < sr * 0.2 && i+j < data.length; j++) { if (Math.abs(data[i+j]) <= threshold) silentCount++; }
+        if (silentCount > sr * 0.18) { // 180ms of silence
+          if (i/sr - startT > 0.2) { addSlice(startT, i/sr, 'silence', `${sourceName} · chunk`, idx++); }
+          isSilent = true; i += sr * 0.2; // skip forward
+        }
+      }
+    }
+  }
+
+  const applyFilter = async (type, freq) => {
+    const off = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length, sr);
+    const src = off.createBufferSource(); src.buffer = audioBuffer;
+    const filter = off.createBiquadFilter(); filter.type = type; filter.frequency.value = freq;
+    src.connect(filter); filter.connect(off.destination); src.start();
+    return await off.startRendering();
+  };
+
+  if (modes.includes('freqLow')) {
+    const lowBuf = await applyFilter('lowpass', 150);
+    getHits(lowBuf, 0.4, 'hit_low', `${sourceName} · low`);
+  }
+  if (modes.includes('freqHigh')) {
+    const highBuf = await applyFilter('highpass', 4000);
+    getHits(highBuf, 0.2, 'hit_high', `${sourceName} · high`);
+  }
+
+  return result;
+}
+
+function renderSliceLibrary(filter) {
+  const grid = document.getElementById('slice-grid');
+  grid.innerHTML = '';
+  const f = filter || currentFilter;
+  const show = f === 'all' ? slices : slices.filter(s => s.type === f || (f==='phrase' && s.type==='phrase') || (f==='bar' && s.type==='bar') || (f==='beat' && s.type==='beat') || (f==='hit' && s.type==='hit') || (f==='eighth' && s.type==='eighth'));
+  for (const s of show) {
+    const el = document.createElement('div');
+    el.className = 'slice-card' + (selectedSlice?.id === s.id ? ' selected' : '');
+    el.onclick = () => selectSlice(s, el);
+    el.draggable = true;
+    el.addEventListener('dragstart', e => { e.dataTransfer.setData('sliceId', s.id); });
+    el.innerHTML = `<button class="slice-dl" title="Download" onclick="event.stopPropagation();downloadSlice('${s.id}')">↓</button>
+      <div class="slice-type">${s.type}</div>
+      <div class="slice-name">${s.source}</div>
+      <div class="slice-tags">
+        <span class="tag bpm">${s.bpm}</span>
+        <span class="tag type">${s.section}</span>
+        <span class="tag">${Math.round(s.duration*10)/10}s</span>
+      </div>`;
+    grid.appendChild(el);
+  }
+}
+
+function filterSlices(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderSliceLibrary(type);
+}
+
+function selectSlice(slice, el) {
+  document.querySelectorAll('.slice-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedSlice = slice;
+  const wrap = document.getElementById('waveform-wrap');
+  wrap.style.display = '';
+  drawWaveform(slice.buffer);
+  const blob = bufferToWavBlob(slice.buffer);
+  document.getElementById('preview-audio').src = URL.createObjectURL(blob);
+}
+
+function drawWaveform(buf) {
+  const canvas = document.getElementById('waveform-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = (canvas.offsetWidth || 600) * window.devicePixelRatio;
+  canvas.height = 56 * window.devicePixelRatio;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const data = buf.getChannelData(0);
+  const step = Math.ceil(data.length / canvas.width);
+  const amp = canvas.height / 2;
+  ctx.strokeStyle = '#c8f542'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < canvas.width; i++) {
+    let max = 0;
+    for (let j = 0; j < step; j++) { const v = Math.abs(data[i*step+j]||0); if(v>max) max=v; }
+    ctx.moveTo(i, amp - max*amp*0.9); ctx.lineTo(i, amp + max*amp*0.9);
+  }
+  ctx.stroke();
+}
+
+function downloadSlice(id) {
+  const s = slices.find(x => x.id === id);
+  if (!s) return;
+  const blob = bufferToWavBlob(s.buffer);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = s.filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadSelected() {
+  if (selectedSlice) downloadSlice(selectedSlice.id);
+}
+
+async function downloadAllZip() {
+  if (slices.length === 0) return;
+  const zipBtn = document.getElementById('zip-btn-inner');
+  zipBtn.innerHTML = '<span class="spinner"></span> Packing...';
+  document.getElementById('zip-btn').disabled = true;
+  try {
+    const zip = new JSZip();
+    const folder = zip.folder('void_slices');
+    for (const s of slices) {
+      const blob = bufferToWavBlob(s.buffer);
+      const ab = await blob.arrayBuffer();
+      folder.file(s.filename, ab);
+    }
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a'); a.href = url; a.download = 'void_slices.zip'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch(e) { alert('ZIP error: ' + e.message); }
+  zipBtn.textContent = 'Download all ZIP';
+  document.getElementById('zip-btn').disabled = false;
+}
+
+// PAD PLAYER
+function setupPads() {
+  const grid = document.getElementById('pad-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 16; i++) {
+    const pad = document.createElement('div');
+    pad.className = 'pad'; pad.id = 'pad-' + i;
+    pad.dataset.index = i;
+    pad.innerHTML = `<span class="pad-key">${PAD_KEYS[i].toUpperCase()}</span><span class="pad-empty">+</span>`;
+    pad.addEventListener('click', () => triggerPad(i));
+    pad.addEventListener('dragover', e => { e.preventDefault(); pad.classList.add('dragover-pad'); });
+    pad.addEventListener('dragleave', () => pad.classList.remove('dragover-pad'));
+    pad.addEventListener('drop', e => {
+      e.preventDefault(); pad.classList.remove('dragover-pad');
+      const id = e.dataTransfer.getData('sliceId');
+      if (id) assignSliceToPad(id, i);
+    });
+    grid.appendChild(pad);
+  }
+}
+
+function renderPadSliceList() {
+  const list = document.getElementById('slice-drop-list');
+  if (slices.length === 0) { list.innerHTML = '<p style="font-size:11px;color:var(--muted)">Slice some songs first</p>'; return; }
+  list.innerHTML = '';
+  slices.forEach((s, idx) => {
+    const el = document.createElement('div');
+    el.className = 'slice-drop-item';
+    el.draggable = true;
+    el.addEventListener('dragstart', e => e.dataTransfer.setData('sliceId', s.id));
+    const col = PAD_COLORS[idx % PAD_COLORS.length];
+    el.innerHTML = `<div class="slice-dot" style="background:${col}"></div>
+      <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.source} · ${s.type}</span>
+      <span class="slice-drop-meta">${Math.round(s.duration*10)/10}s</span>`;
+    list.appendChild(el);
+  });
+}
+
+function assignSliceToPad(sliceId, padIndex) {
+  const s = slices.find(x => x.id === sliceId);
+  if (!s) return;
+  pads[padIndex] = s;
+  const pad = document.getElementById('pad-' + padIndex);
+  const col = PAD_COLORS[padIndex % PAD_COLORS.length];
+  pad.innerHTML = `<span class="pad-key">${PAD_KEYS[padIndex].toUpperCase()}</span>
+    <span class="pad-name">${s.source}</span>
+    <span class="pad-meta">${s.type} · ${Math.round(s.duration*10)/10}s</span>
+    <div class="pad-color" style="background:${col}"></div>`;
+  pad.style.borderColor = col + '60';
+  pad.classList.add('loaded');
+}
+
+function sendToPad() {
+  if (!selectedSlice) return;
+  switchTab('pads');
+  const emptyIdx = pads.findIndex(p => !p);
+  if (emptyIdx >= 0) { assignSliceToPad(selectedSlice.id, emptyIdx); renderPadSliceList(); }
+  else { assignSliceToPad(selectedSlice.id, 0); renderPadSliceList(); }
+}
+
+function triggerPad(index) {
+  if (!actx) actx = new AudioContext();
+  const slice = pads[index];
+  if (!slice) return;
+  const src = actx.createBufferSource();
+  src.buffer = slice.buffer;
+  if (isRecording && recDestination) src.connect(recDestination);
+  src.connect(actx.destination);
+  src.start();
+  const pad = document.getElementById('pad-' + index);
+  pad.classList.add('active');
+  setTimeout(() => pad.classList.remove('active'), Math.min(slice.duration * 1000, 300));
+  if (isRecording) recordedEvents.push({ time: actx.currentTime - recordStartTime, index });
+}
+
+function handlePadKey(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const idx = PAD_KEYS.indexOf(e.key.toLowerCase());
+  if (idx >= 0) { e.preventDefault(); triggerPad(idx); }
+}
+
+function toggleRecord() {
+  if (!actx) actx = new AudioContext();
+  isRecording = !isRecording;
+  const btn = document.getElementById('rec-btn');
+  const status = document.getElementById('rec-status');
+  if (isRecording) {
+    recordedEvents = []; recordStartTime = actx.currentTime;
+    recChunks = [];
+    try {
+      const dest = actx.createMediaStreamDestination();
+      recDestination = dest;
+      recMediaRecorder = new MediaRecorder(dest.stream);
+      recMediaRecorder.ondataavailable = e => recChunks.push(e.data);
+      recMediaRecorder.start();
+    } catch(e) { recDestination = null; }
+    btn.classList.add('recording');
+    status.textContent = 'recording...';
+    status.style.color = 'var(--accent2)';
+  } else {
+    btn.classList.remove('recording');
+    status.textContent = 'not recording';
+    status.style.color = 'var(--muted)';
+    if (recMediaRecorder && recMediaRecorder.state !== 'inactive') recMediaRecorder.stop();
+    recDestination = null;
+  }
+}
+
+function stopAndExport() {
+  if (isRecording) toggleRecord();
+  if (!recMediaRecorder) { setStatus('nothing recorded'); return; }
+  setTimeout(() => {
+    const blob = new Blob(recChunks, { type: 'audio/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'void_performance.webm'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setStatus('performance exported');
+  }, 300);
+}
+
+async function exportDrumRack() {
+  if (pads.filter(p => p !== null).length === 0) {
+    alert("Load some slices onto the pads first!");
+    return;
+  }
+  
+  const btnInner = document.getElementById('drumrack-btn-inner');
+  document.getElementById('drumrack-btn').disabled = true;
+  btnInner.innerHTML = '<span class="spinner"></span> Building Rack...';
+  
+  try {
+    const zip = new JSZip();
+    const folder = zip.folder('Void_Drum_Rack');
+    
+    // Drum racks typically start at C1 (note 36).
+    const notes = ["C1", "C#1", "D1", "D#1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", "D#2"];
+    
+    for (let i = 0; i < 16; i++) {
+      let slice = pads[i];
+      if (slice) {
+        const blob = bufferToWavBlob(slice.buffer);
+        const ab = await blob.arrayBuffer();
+        // Zero-pad the prefix so alphabetical sort matches Drum Rack sequence
+        const prefix = String(i + 1).padStart(2, '0');
+        const filename = `${prefix}_VoidPad_${notes[i]}.wav`;
+        folder.file(filename, ab);
+      }
+    }
+    
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a'); 
+    a.href = url; 
+    a.download = 'Void_DrumRack_Kit.zip'; 
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setStatus('Drum Rack exported!');
+  } catch(e) { 
+    alert('Export error: ' + e.message); 
+  }
+  
+  btnInner.textContent = '↓ Export Ableton Drum Rack';
+  document.getElementById('drumrack-btn').disabled = false;
+}
+
+function bufferToWavBlob(buffer) {
+  const numCh = buffer.numberOfChannels, sr = buffer.sampleRate, len = buffer.length;
+  const ab = new ArrayBuffer(44 + len*numCh*2);
+  const view = new DataView(ab);
+  const w = (o,s) => { for(let i=0;i<s.length;i++) view.setUint8(o+i,s.charCodeAt(i)); };
+  w(0,'RIFF'); view.setUint32(4,36+len*numCh*2,true); w(8,'WAVE');
+  w(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
+  view.setUint16(22,numCh,true); view.setUint32(24,sr,true);
+  view.setUint32(28,sr*numCh*2,true); view.setUint16(32,numCh*2,true);
+  view.setUint16(34,16,true); w(36,'data'); view.setUint32(40,len*numCh*2,true);
+  let offset = 44;
+  for (let i=0;i<len;i++) for (let c=0;c<numCh;c++) {
+    const s = Math.max(-1,Math.min(1,buffer.getChannelData(c)[i]));
+    view.setInt16(offset, s<0?s*0x8000:s*0x7FFF, true); offset+=2;
+  }
+  return new Blob([ab],{type:'audio/wav'});
+}
+
+/* TUTORIAL LOGIC */
+let tutStep = 1;
+function initTutorial() {
+  if (!localStorage.getItem('void_tutorial_seen')) {
+    setTimeout(() => document.getElementById('tut-overlay').classList.add('active'), 500);
+  }
+  document.getElementById('tut-next').onclick = () => updateTut(1);
+  document.getElementById('tut-prev').onclick = () => updateTut(-1);
+  document.getElementById('tut-skip').onclick = closeTut;
+}
+function updateTut(dir) {
+  tutStep += dir;
+  if (tutStep > 3) { closeTut(); return; }
+  
+  document.querySelectorAll('.tut-step').forEach((el, i) => {
+    el.classList.toggle('active', i + 1 === tutStep);
+  });
+  document.querySelectorAll('.tut-pdot').forEach((el, i) => {
+    el.classList.toggle('active', i + 1 === tutStep);
+  });
+  
+  document.getElementById('tut-prev').style.display = tutStep === 1 ? 'none' : 'block';
+  const nextBtn = document.getElementById('tut-next');
+  nextBtn.textContent = tutStep === 3 ? 'Get Started' : 'Next →';
+  if (tutStep === 3) {
+    nextBtn.style.background = 'var(--accent)';
+    nextBtn.style.color = '#0a0a0a';
+  } else {
+    nextBtn.style.background = 'var(--text)';
+    nextBtn.style.color = 'var(--bg)';
+  }
+}
+function closeTut() {
+  document.getElementById('tut-overlay').classList.remove('active');
+  localStorage.setItem('void_tutorial_seen', 'true');
+}
+</script>
+
+<div class="tut-overlay" id="tut-overlay">
+  <div class="tut-modal">
+    <!-- Step 1 -->
+    <div class="tut-step active" id="tut-step-1">
+      <div class="tut-title"><div class="tut-dot"></div> Welcome to VØID 1.0</div>
+      <div class="tut-text">
+        <strong>VØID 1.0</strong> is an advanced, fully offline audio slicer and remixer. It runs entirely in your browser without any cloud processing. <br><br>
+        It was built to help you rapidly break down stems, isolate precise hits, and recombine them into something entirely new.
+      </div>
+    </div>
+    <!-- Step 2 -->
+    <div class="tut-step" id="tut-step-2">
+      <div class="tut-title"><div class="tut-dot" style="background:#42f5a4"></div> Drop, Slice, Discover</div>
+      <div class="tut-text">
+        <strong>How it works:</strong> Drop up to 10 audio files into the dropzone. <br><br>
+        Choose your exact <strong>slice granularity</strong>—from full 8-bar phrases, 1/16th chops, or specific transients to silence-separated bits.<br><br>
+        Hit <em>"Slice all songs"</em> and watch VØID instantly build your sample library locally.
+      </div>
+    </div>
+    <!-- Step 3 -->
+    <div class="tut-step" id="tut-step-3">
+      <div class="tut-title"><div class="tut-dot" style="background:var(--accent2)"></div> Build the Remainder</div>
+      <div class="tut-text">
+        <strong>The End Product:</strong> Play your sliced stems live in the <strong>Pad Player</strong> (switch tabs above). Map to keys, record performances, and export Ableton <em>Drum Racks</em> directly.<br><br>
+        Or, use the <strong>Local Remixer</strong> to auto-generate a new arrangement based on energy, structure, or randomness.
+      </div>
+    </div>
+
+    <div class="tut-controls">
+      <div class="tut-progress">
+        <div class="tut-pdot active" id="pdot-1"></div>
+        <div class="tut-pdot" id="pdot-2"></div>
+        <div class="tut-pdot" id="pdot-3"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-tut ghost" id="tut-skip">Skip</button>
+        <button class="btn-tut ghost" id="tut-prev" style="display:none">Back</button>
+        <button class="btn-tut primary" id="tut-next">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="about-btn" onclick="document.getElementById('about-overlay').classList.add('active')">About</button>
+
+<div class="about-overlay" id="about-overlay" onclick="if(event.target===this) this.classList.remove('active')">
+  <div class="about-modal">
+    <h3>VØID 1.0</h3>
+    <p>Copyright © Justin Ray<br>Version 1.23 · Created 04/2026</p>
+    <p style="margin-top:12px">For more visit:<br><a href="https://jray.me/projects" target="_blank" rel="noopener">https://jray.me/projects</a></p>
+    <button class="about-close" onclick="document.getElementById('about-overlay').classList.remove('active')">Close</button>
+  </div>
+</div>
+
+</body>
+</html>
