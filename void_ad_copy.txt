@@ -1,0 +1,33 @@
+# VØID 1.2 — Offline Audio Slicer & Remixer
+
+## Highlight Features (For Video Reel Captions)
+- **Zero-Latency Offline Slicing**: Instantly slice entire folders of audio—no cloud needed.
+- **Granular Slice Modes**: Cut by phrase, triplet, downbeat, or transient peaks.
+- **Algorithmic Local Remixer**: Instantly auto-remix your slices using Euclidean rhythms, Markov chains, or Golden Ratio builds.
+- **Playable Pad Bank**: Drag and drop slices to a 16-pad sampler. Play your keyboard. Perform.
+- **Sample Refinement Engine**: Seamlessly trim, rename, and micro-edit any slice directly in the app.
+- **Ableton Drum Rack Export**: Turn your custom pad bank into a ready-to-use Ableton kit with one click.
+
+---
+
+## Ad Copy Concepts
+
+### Version 1: The Producer Focus (Punchy)
+**Headline:** Stop clicking. Start slicing. 
+**Body:** Meet VØID 1.2. The hyper-fast offline audio slicer that runs entirely in your browser. Drag in your songs. Pick a slice mode—from 1/4 triplets to transient isolation—and hit slice. Build custom 16-pad drum racks in seconds.
+**Call to Action:** Experience zero-latency sampling. Try VØID 1.2 today.
+
+### Version 2: The Experimental/Algorithmic Angle (Intriguing)
+**Headline:** What happens when an algorithm remixes your samples?
+**Body:** VØID 1.2 isn't just a sampler. It’s a creative engine. Toss in a 2-minute song and let our offline Local Remixer use Markov Chains and Euclidean Stutter to generate entirely new arrangements. Find happy accidents instantly. 
+**Call to Action:** Unlock the algorithmic studio.
+
+### Version 3: The Workflow Angle (Practical)
+**Headline:** The fastest path from sample to DAW. 
+**Body:** VØID 1.2 was built for speed. Slice offline. Drag to the pad bank. Refine your chops. Then click "Export Ableton Drum Rack" and drop it straight into your session. No accounts. No uploads. Pure workflow.
+**Call to Action:** Speed up your sampling process.
+
+### Taglines / Short Copy (For TikTok/Shorts)
+- "The fastest way to chop samples offline."
+- "Turn any song into a Drum Rack in 10 seconds."
+- "Euclidean stutter remixing—in your browser."

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VØID 1.0 — Offline Audio Slicer & Remixer</title>
+<title>VØID 1.2 — Offline Audio Slicer & Remixer</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
@@ -52,7 +52,7 @@
   /* SLICER PANEL */
   #panel-slicer { min-height: calc(100vh - 65px); }
   .left { flex: 1; padding: 36px 40px; border-right: 1px solid var(--border); }
-  .right { width: 380px; padding: 36px; background: var(--surface); display: flex; flex-direction: column; gap: 22px; }
+  .right { width: 380px; padding: 36px; background: var(--surface); display: flex; flex-direction: column; gap: 22px; position: sticky; top: 67px; height: calc(100vh - 67px); overflow-y: auto; }
 
   .section-title { font-size: 10px; font-weight: 700; letter-spacing: .15em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
 
@@ -206,24 +206,24 @@
   .pad-header h2 { font-size: 18px; font-weight: 800; }
   .pad-header p { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
-  .pad-layout { display: grid; grid-template-columns: 1fr 320px; gap: 32px; }
+  .pad-layout { display: grid; grid-template-columns: minmax(auto, 600px) 380px; gap: 32px; justify-content: start; }
 
-  .pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .pad {
-    aspect-ratio: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    aspect-ratio: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     cursor: pointer; transition: all .08s; user-select: none; position: relative; overflow: hidden;
-    min-height: 100px;
+    min-height: 75px;
   }
   .pad:hover { border-color: var(--muted); }
   .pad.loaded { border-color: var(--border); }
   .pad.active { background: #1a2e00 !important; border-color: var(--accent) !important; transform: scale(0.96); }
   .pad.dragover-pad { border-color: var(--accent); background: #111f00; border-style: dashed; }
-  .pad .pad-key { font-family: var(--mono); font-size: 10px; color: var(--muted); position: absolute; top: 8px; left: 10px; }
-  .pad .pad-name { font-size: 11px; font-weight: 700; text-align: center; padding: 0 8px; line-height: 1.3; }
-  .pad .pad-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 4px; }
-  .pad .pad-color { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; border-radius: 0 0 9px 9px; }
-  .pad .pad-empty { font-size: 20px; color: var(--border); }
+  .pad .pad-key { font-family: var(--mono); font-size: 9px; color: var(--muted); position: absolute; top: 6px; left: 8px; }
+  .pad .pad-name { font-size: 10px; font-weight: 700; text-align: center; padding: 0 6px; line-height: 1.2; }
+  .pad .pad-meta { font-family: var(--mono); font-size: 8px; color: var(--muted); margin-top: 3px; }
+  .pad .pad-color { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; border-radius: 0 0 7px 7px; }
+  .pad .pad-empty { font-size: 16px; color: var(--border); }
   .pad .pad-wave { position: absolute; inset: 0; opacity: .15; }
 
   .pad-sidebar { display: flex; flex-direction: column; gap: 16px; }
@@ -259,6 +259,20 @@
   ::-webkit-scrollbar { width: 3px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* REFINEMENT EDITOR */
+  .refinement-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: none; }
+  .refinement-wrap.active { display: block; }
+  .refinement-wrap h3 { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .refinement-canvas-container { position: relative; width: 100%; height: 70px; background: #0a0a0a; border-radius: 4px; margin-bottom: 12px; overflow: hidden; cursor: crosshair; }
+  canvas.refinement-canvas { display: block; width: 100%; height: 100%; }
+  .refinement-marker { position: absolute; top: 0; bottom: 0; width: 4px; background: var(--accent); cursor: ew-resize; z-index: 10; transform: translateX(-50%); box-shadow: 0 0 4px rgba(0,0,0,0.5); }
+  .refinement-marker::after { content: ''; position: absolute; top: -4px; left: 50%; transform: translateX(-50%); border-width: 5px 5px 0 5px; border-style: solid; border-color: var(--accent) transparent transparent transparent; }
+  .refinement-marker.end-marker { background: var(--accent2); }
+  .refinement-marker.end-marker::after { border-color: var(--accent2) transparent transparent transparent; }
+  .refinement-overlay { position: absolute; top: 0; bottom: 0; background: rgba(0,0,0,0.6); pointer-events: none; }
+  .refinement-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .refinement-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: var(--mono); font-size: 11px; padding: 6px 8px; outline: none; min-width: 120px; }
 
   /* SMART MODE TOGGLE */
   .smart-toggle { display: flex; align-items: center; gap: 10px; }
@@ -355,7 +369,7 @@
 <body>
 
 <header>
-  <a class="logo" href="https://www.jray.me" target="_blank" rel="noopener">VØID <span>1.0</span></a>
+  <a class="logo" href="https://www.jray.me" target="_blank" rel="noopener">VØID <span>1.2</span></a>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('slicer')">Slicer</button>
     <button class="tab" onclick="switchTab('pads')" id="tab-pads">Pads</button>
@@ -405,8 +419,6 @@
         <button class="mode-btn" data-mode="downbeat" data-formula="t_snap = ⌊t/L_bar⌋ × L_bar">Downbeats only</button>
         <button class="mode-btn on" data-mode="transient" data-formula="Σ|x[n]| > θ_thresh">Transient hits</button>
         <button class="mode-btn" data-mode="silence" data-formula="∫|x(t)|dt < θ_min | Δt > τ">Silence separation</button>
-        <button class="mode-btn" data-mode="freqLow" data-formula="LPF(ƒ < 150Hz) → Transient">Low-End (Kicks/Sub)</button>
-        <button class="mode-btn" data-mode="freqHigh" data-formula="HPF(ƒ > 4kHz) → Transient">High-End (Hats/Snare)</button>
       </div>
     </div>
 
@@ -431,11 +443,6 @@
       </div>
       <div class="slice-toolbar" id="filter-bar">
         <button class="filter-btn active" onclick="filterSlices('all',this)">All</button>
-        <button class="filter-btn" onclick="filterSlices('phrase',this)">Phrases</button>
-        <button class="filter-btn" onclick="filterSlices('bar',this)">Bars</button>
-        <button class="filter-btn" onclick="filterSlices('beat',this)">Beats</button>
-        <button class="filter-btn" onclick="filterSlices('hit',this)">Hits</button>
-        <button class="filter-btn" onclick="filterSlices('eighth',this)">⅛-chops</button>
       </div>
       <div class="slice-grid" id="slice-grid"></div>
       <div class="waveform-wrap" id="waveform-wrap" style="display:none">
@@ -460,6 +467,11 @@
           <option value="linear">Linear (song order)</option>
           <option value="energy">Energy build</option>
           <option value="section">Section-aware</option>
+          <option value="markov">Markov Chain</option>
+          <option value="call_response">Call & Response</option>
+          <option value="euclidean">Euclidean Stutter</option>
+          <option value="golden_ratio">Golden Ratio Build</option>
+          <option value="high_freq">Spike Glitch</option>
         </select>
       </div>
       <div class="setting-row">
@@ -469,7 +481,7 @@
       </div>
       <div class="setting-row">
         <span class="setting-label">Crossfade</span>
-        <input type="range" min="0" max="4" value="1" step="0.5" id="local-fade-slider" oninput="document.getElementById('local-fade-val').textContent=this.value+'s'">
+        <input type="range" min="0" max="4" value="1" step="0.25" id="local-fade-slider" oninput="document.getElementById('local-fade-val').textContent=this.value+'s'">
         <span class="setting-val" id="local-fade-val">1s</span>
       </div>
     </div>
@@ -479,6 +491,12 @@
     <hr class="divider">
     <div id="local-remix-output">
       <div class="empty-state"><p>Slice your songs first,<br>then select a structure<br>and hit auto remix.</p></div>
+    </div>
+    <hr class="divider" style="margin-top: 10px;">
+    <div class="section-title" style="margin-top: 20px;">Pad bank staging</div>
+    <div id="user-slices-dropzone" style="min-height: 150px; border: 2px dashed #42f5a4; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: all .2s; background: #111f00; flex: 1; box-shadow: inset 0 0 15px rgba(66,245,164,0.1);">
+      <div class="empty-state" style="padding:20px 0; margin:0;" id="user-slices-empty"><p>Drag slices here<br>to build your pad bank</p></div>
+      <div id="user-slices-list" style="display:flex; flex-direction:column; gap:4px; flex: 1; overflow-y:auto;"></div>
     </div>
   </div>
 </div>
@@ -507,9 +525,27 @@
         <div id="pad-detail" style="font-size:12px;color:var(--muted)">Click a pad to see details</div>
       </div>
       <div class="pad-info" style="flex:1">
-        <h3>Slice library — drag to pad</h3>
+        <h3>Selected Slices — drag to pad</h3>
         <div class="slice-drop-list" id="slice-drop-list">
-          <p style="font-size:11px;color:var(--muted)">Slice some songs first</p>
+          <p style="font-size:11px;color:var(--muted)">Build your pad bank in the Slicer tab first</p>
+        </div>
+      </div>
+      <div class="refinement-wrap" id="refinement-editor">
+        <h3 id="refinement-title">Sample Refinement</h3>
+        <div class="refinement-canvas-container" id="ref-canvas-cont">
+          <canvas class="refinement-canvas" id="ref-canvas"></canvas>
+          <div class="refinement-overlay" id="ref-overlay-start" style="left:0; width:0%"></div>
+          <div class="refinement-overlay" id="ref-overlay-end" style="right:0; width:0%"></div>
+          <div class="refinement-marker" id="ref-marker-start" style="left: 0%;"></div>
+          <div class="refinement-marker end-marker" id="ref-marker-end" style="left: 100%;"></div>
+        </div>
+        <div class="refinement-controls">
+          <button class="btn btn-ghost" style="padding:6px; font-size:14px" id="ref-play-btn" title="Preview slice">▶</button>
+          <input type="text" class="refinement-input" id="ref-name-input" placeholder="Slice Name">
+        </div>
+        <div class="refinement-controls" style="margin-top:8px">
+          <button class="btn btn-primary" style="flex:1; padding:6px; font-size:11px" id="ref-save-btn">Save Trim</button>
+          <button class="btn btn-ghost" style="padding:6px 10px; font-size:11px" id="ref-dl-btn" title="Download Slice">↓</button>
         </div>
       </div>
     </div>
@@ -521,6 +557,8 @@ const AudioContext = window.AudioContext || window.webkitAudioContext;
 let actx = null;
 let files = [];
 let slices = [];
+let userSelectedSlices = [];
+let hasSliced = false;
 let selectedSlice = null;
 let currentFilter = 'all';
 let remixPlan = null;
@@ -540,38 +578,120 @@ function buildLocalRemix() {
   const targetLen = parseInt(document.getElementById('local-length-slider').value);
   const fadeTime = parseFloat(document.getElementById('local-fade-slider').value);
 
-  let pool = slices.filter(s => s.type === 'phrase' || s.type === 'bar');
-  if (pool.length === 0) pool = [...slices];
+  const getSlices = (types) => {
+    let s = slices.filter(x => types.includes(x.type));
+    return s.length > 0 ? s : slices;
+  };
 
-  let ordered = [];
-  if (structure === 'linear') {
-    ordered = [...pool].sort((a,b) => a.start - b.start);
-  } else if (structure === 'energy') {
-    const intro = pool.filter(s => s.section === 'intro');
-    const build = pool.filter(s => s.section === 'build');
-    const drop = pool.filter(s => s.section === 'drop');
-    const outro = pool.filter(s => s.section === 'outro');
-    ordered = [...shuffle(intro), ...shuffle(build), ...shuffle(drop), ...shuffle(outro)];
-    if (ordered.length === 0) ordered = shuffle([...pool]);
-  } else if (structure === 'section') {
-    const groups = {};
-    pool.forEach(s => { if (!groups[s.section]) groups[s.section] = []; groups[s.section].push(s); });
-    const order = ['intro','build','drop','outro'];
-    order.forEach(sec => { if (groups[sec]) ordered.push(...shuffle(groups[sec])); });
-    if (ordered.length === 0) ordered = shuffle([...pool]);
+  let arrangement = [];
+  let t = 0;
+
+  const addBlock = (slice, startOffset = 0) => {
+    arrangement.push({ slice, startTime: t });
+    t += Math.max(0.05, slice.duration - fadeTime) + startOffset;
+  };
+
+  if (structure === 'markov') {
+    const secOrder = ['intro', 'verse', 'build', 'drop', 'breakdown', 'bridge', 'outro'];
+    let currentSec = 'intro';
+    let pool = getSlices(['phrase', 'bar', 'beat']);
+    while (t < targetLen) {
+      let options = pool.filter(s => s.section === currentSec);
+      if (options.length === 0) options = pool;
+      addBlock(shuffle(options)[0]);
+      const r = Math.random();
+      if (currentSec === 'intro' && r > 0.3) currentSec = 'verse';
+      else if (currentSec === 'verse' && r > 0.4) currentSec = 'build';
+      else if (currentSec === 'build' && r > 0.2) currentSec = 'drop';
+      else if (currentSec === 'drop' && r > 0.6) currentSec = 'breakdown';
+      else if (currentSec === 'breakdown') currentSec = 'build';
+      else if (currentSec === 'bridge') currentSec = 'drop';
+    }
+  } else if (structure === 'call_response') {
+    const longs = getSlices(['phrase', 'bar']);
+    const shorts = getSlices(['hit', 'eighth', 'sixteenth']);
+    while (t < targetLen) {
+      addBlock(shuffle(longs)[0]); 
+      let stut = shuffle(shorts)[0];
+      for(let i=0; i<4; i++) {
+        arrangement.push({ slice: stut, startTime: t });
+        t += Math.max(0.05, stut.duration);
+      }
+    }
+  } else if (structure === 'euclidean') {
+    const pads = getSlices(['phrase', 'bar']);
+    const hits = getSlices(['hit', 'sixteenth']);
+    while (t < targetLen) {
+      let base = shuffle(pads)[0];
+      arrangement.push({ slice: base, startTime: t });
+      let hit = shuffle(hits)[0];
+      let step = base.duration / 3;
+      arrangement.push({ slice: hit, startTime: t });
+      arrangement.push({ slice: hit, startTime: t + step });
+      arrangement.push({ slice: hit, startTime: t + step * 2 });
+      t += Math.max(0.1, base.duration - fadeTime);
+    }
+  } else if (structure === 'golden_ratio') {
+    const all = shuffle(slices);
+    let size = 8;
+    while (t < targetLen) {
+      let options = slices.filter(s => Math.abs(s.duration - size) < 1.0);
+      if (options.length === 0) options = all;
+      let sl = shuffle(options)[0];
+      let reps = Math.ceil(8/size); 
+      for(let i=0; i < reps; i++) {
+        arrangement.push({ slice: sl, startTime: t });
+        t += Math.max(0.05, sl.duration - (fadeTime*(size/8))); 
+      }
+      size /= 1.618;
+      if (size < 0.25) size = 8; 
+    }
+  } else if (structure === 'high_freq') {
+    const beats = getSlices(['beat', 'bar']);
+    let vocals = getSlices(['eighth', 'sixteenth', 'hit']); 
+    while (t < targetLen) {
+      let b = shuffle(beats)[0];
+      arrangement.push({ slice: b, startTime: t });
+      let v = shuffle(vocals)[0];
+      let chops = Math.floor(Math.random() * 3) + 2;
+      for(let c=0; c<chops; c++) {
+        arrangement.push({ slice: v, startTime: t + (b.duration/chops)*c });
+      }
+      t += Math.max(0.1, b.duration - fadeTime);
+    }
   } else {
-    ordered = shuffle([...pool]);
+    let pool = slices.filter(s => s.type === 'phrase' || s.type === 'bar');
+    if (pool.length === 0) pool = [...slices];
+    let ordered = [];
+    if (structure === 'linear') {
+      ordered = [...pool].sort((a,b) => a.start - b.start);
+    } else if (structure === 'energy') {
+      const intro = pool.filter(s => s.section === 'intro');
+      const build = pool.filter(s => s.section === 'build');
+      const drop = pool.filter(s => s.section === 'drop');
+      const outro = pool.filter(s => s.section === 'outro');
+      ordered = [...shuffle(intro), ...shuffle(build), ...shuffle(drop), ...shuffle(outro)];
+      if (ordered.length === 0) ordered = shuffle([...pool]);
+    } else if (structure === 'section') {
+      const groups = {};
+      pool.forEach(s => { if (!groups[s.section]) groups[s.section] = []; groups[s.section].push(s); });
+      const order = ['intro','verse','build','drop','breakdown','bridge','outro'];
+      order.forEach(sec => { if (groups[sec]) ordered.push(...shuffle(groups[sec])); });
+      if (ordered.length === 0) ordered = shuffle([...pool]);
+    } else {
+      ordered = shuffle([...pool]);
+    }
+    let i = 0;
+    while (t < targetLen && i < ordered.length * 3) {
+      const s = ordered[i % ordered.length];
+      arrangement.push({ slice: s, startTime: t });
+      t += Math.max(0.1, s.duration - fadeTime);
+      i++;
+    }
   }
 
-  let arrangement = [], t = 0, i = 0;
-  while (t < targetLen && i < ordered.length * 3) {
-    const s = ordered[i % ordered.length];
-    arrangement.push({ slice: s, startTime: t });
-    t += Math.max(0.1, s.duration - fadeTime);
-    i++;
-  }
-
-  renderLocalRemix(arrangement, fadeTime);
+  let finalArr = arrangement.filter(x => x.startTime <= targetLen + 2);
+  renderLocalRemix(finalArr, fadeTime);
 }
 
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
@@ -626,7 +746,7 @@ async function renderLocalRemix(arrangement, fadeTime) {
 function setStatus(msg) { document.getElementById('status-text').textContent = msg; }
 
 window.onload = () => {
-  setupDrop(); setupPads(); setupModeButtons(); initTutorial();
+  setupDrop(); setupSliceDrop(); setupPads(); setupModeButtons(); initTutorial();
   document.addEventListener('keydown', handlePadKey);
 };
 
@@ -713,19 +833,133 @@ function removeFile(id) {
   if (files.length === 0) document.getElementById('slice-btn').disabled = true;
 }
 
+function setupSliceDrop() {
+  const dz = document.getElementById('user-slices-dropzone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = 'var(--accent)'; dz.style.background = '#1a2e00'; });
+  dz.addEventListener('dragleave', () => { dz.style.borderColor = '#42f5a4'; dz.style.background = '#111f00'; });
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.style.borderColor = '#42f5a4'; dz.style.background = '#111f00';
+    const id = e.dataTransfer.getData('sliceId');
+    if (id) {
+      const s = slices.find(x => x.id === id);
+      if (s && !userSelectedSlices.find(x => x.id === id)) {
+        userSelectedSlices.push(s);
+        renderUserSlices();
+      }
+    }
+  });
+}
+
+function renderUserSlices() {
+  const list = document.getElementById('user-slices-list');
+  const empty = document.getElementById('user-slices-empty');
+  if (userSelectedSlices.length === 0) {
+    empty.style.display = 'block';
+    list.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = '';
+  userSelectedSlices.forEach((s, idx) => {
+    const el = document.createElement('div');
+    el.className = 'slice-drop-item';
+    el.style.cursor = 'default';
+    const col = PAD_COLORS[idx % PAD_COLORS.length];
+    el.innerHTML = `<div class="slice-dot" style="background:${col}"></div>
+      <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.source} · ${s.type}</span>
+      <button class="file-remove" onclick="removeUserSlice('${s.id}')" style="margin-left:auto;font-size:14px;background:none;border:none;color:var(--muted);cursor:pointer;">✕</button>`;
+    list.appendChild(el);
+  });
+  if (document.getElementById('panel-pads').classList.contains('active')) {
+    renderPadSliceList();
+  }
+}
+
+function removeUserSlice(id) {
+  userSelectedSlices = userSelectedSlices.filter(x => x.id !== id);
+  renderUserSlices();
+}
+
 function clearAll() {
-  files = []; slices = [];
-  document.getElementById('file-list').innerHTML = '';
+  hasSliced = false;
+  slices = []; userSelectedSlices = [];
   document.getElementById('slice-grid').innerHTML = '';
   document.getElementById('slice-count').textContent = '0';
   document.getElementById('stage-2').style.display = 'none';
-  document.getElementById('slice-btn').disabled = true;
-  document.getElementById('clear-btn').style.display = 'none';
-  document.getElementById('remix-output').innerHTML = `<div class="empty-state"><p>Slice your songs first,<br>then select a structure<br>and hit auto remix.</p></div>`;
-  setStatus('cleared');
+  
+  if (files.length === 0) {
+    document.getElementById('slice-btn').disabled = true;
+    document.getElementById('clear-btn').style.display = 'none';
+  } else {
+    document.getElementById('slice-btn').disabled = false;
+    document.getElementById('clear-btn').style.display = '';
+  }
+  
+  document.getElementById('slice-btn-inner').textContent = 'Slice all songs';
+  const remixOutput = document.getElementById('local-remix-output');
+  if (remixOutput) remixOutput.innerHTML = `<div class="empty-state"><p>Slice your songs first,<br>then select a structure<br>and hit auto remix.</p></div>`;
+  
+  for (const item of files) {
+    const statEl = document.getElementById('stat-' + item.id);
+    if (statEl) {
+      statEl.textContent = 'ready';
+      statEl.className = 'file-status ready';
+    }
+    const progEl = document.getElementById('prog-' + item.id);
+    if (progEl) progEl.style.width = '0%';
+  }
+  
+  renderUserSlices();
+  renderPadSliceList();
+  setStatus('cleared slices');
+}
+
+function renderFilterBar() {
+  const bar = document.getElementById('filter-bar');
+  const types = new Set(slices.map(s => s.type));
+  
+  const labels = {
+    phrase: 'Phrases',
+    bar: 'Bars',
+    beat: 'Beats',
+    eighth: '⅛-chops',
+    sixteenth: '1/16-chops',
+    triplet: 'Triplets',
+    downbeat: 'Downbeats',
+    hit: 'Hits',
+    silence: 'Silence'
+  };
+
+  let html = `<button class="filter-btn active" onclick="filterSlices('all',this)">All</button>`;
+  
+  const order = ['phrase', 'bar', 'beat', 'eighth', 'sixteenth', 'triplet', 'downbeat', 'hit', 'silence'];
+  const sortedTypes = Array.from(types).sort((a,b) => {
+    let ia = order.indexOf(a); if(ia === -1) ia = 99;
+    let ib = order.indexOf(b); if(ib === -1) ib = 99;
+    return ia - ib;
+  });
+
+  for (const t of sortedTypes) {
+    const label = labels[t] || t;
+    html += `<button class="filter-btn" onclick="filterSlices('${t}',this)">${label}</button>`;
+  }
+  
+  bar.innerHTML = html;
+  currentFilter = 'all';
 }
 
 async function sliceAll() {
+  if (hasSliced) {
+    const btn = document.getElementById('clear-btn');
+    if (btn) {
+      const oldText = btn.innerHTML;
+      btn.innerHTML = '<span style="color:var(--accent2); font-weight:bold;">Clear Current First!</span>';
+      setTimeout(() => { btn.innerHTML = oldText; }, 2000);
+    }
+    return;
+  }
+
   if (!actx) actx = new AudioContext();
   const btn = document.getElementById('slice-btn');
   btn.disabled = true;
@@ -764,6 +998,7 @@ async function sliceAll() {
     }
   }
 
+  renderFilterBar();
   renderSliceLibrary();
   document.getElementById('stage-2').style.display = '';
   document.getElementById('slice-count').textContent = slices.length;
@@ -772,6 +1007,7 @@ async function sliceAll() {
   btn.disabled = false;
   document.getElementById('dot-2').classList.add('active');
   setStatus(`${slices.length} slices ready`);
+  hasSliced = true;
 }
 
 function estimateBPM(audioBuffer) {
@@ -802,22 +1038,83 @@ async function extractSlices(audioBuffer, bpm, sourceName, sourceId, modes) {
   const result = [];
   const safeName = sourceName.replace(/[^a-zA-Z0-9_-]/g, '_');
 
+  const trackData = audioBuffer.getChannelData(0);
+  let sumSq = 0;
+  for (let i = 0; i < trackData.length; i+=100) sumSq += trackData[i]*trackData[i];
+  const trackRMS = Math.sqrt(sumSq / (trackData.length/100));
+
   const addSlice = (start, end, type, label, idx, srcBuffer = audioBuffer) => {
     end = Math.min(end, dur);
+    
+    // TRANSIENT AVOIDANCE FOR LOOPS
+    if (type === 'phrase' || type === 'bar' || type === 'beat') {
+      const scanSamples = Math.floor(0.06 * sr); 
+      const endSample = Math.floor(end * sr);
+      const data = srcBuffer.getChannelData(0);
+      let transientIdx = -1;
+      
+      for (let i = endSample - scanSamples; i < endSample - 100; i++) {
+        if (i < 50 || i >= data.length) continue;
+        const amp = Math.abs(data[i]);
+        if (amp > 0.25 && amp > Math.abs(data[i-50]) * 3) {
+          transientIdx = i;
+          break;
+        }
+      }
+      
+      if (transientIdx !== -1) {
+        let zc = transientIdx;
+        for (let i = transientIdx; i > transientIdx - 500; i--) {
+          if (i <= 0) break;
+          if ((data[i] >= 0 && data[i-1] < 0) || (data[i] <= 0 && data[i-1] > 0)) {
+            zc = i; break;
+          }
+        }
+        end = zc / sr;
+      }
+    }
+
     const len = end - start;
     if (len < 0.1) return;
     const ch = srcBuffer.numberOfChannels;
     const buf = actx.createBuffer(ch, Math.max(1, Math.floor(len * sr)), sr);
+    
+    let sliceSumSq = 0;
     for (let c = 0; c < ch; c++) {
       const src = srcBuffer.getChannelData(c);
       const dst = buf.getChannelData(c);
       const offset = Math.floor(start * sr);
-      for (let i = 0; i < buf.length; i++) dst[i] = src[offset + i] || 0;
+      for (let i = 0; i < buf.length; i++) {
+        dst[i] = src[offset + i] || 0;
+        if (c === 0 && i % 10 === 0) sliceSumSq += dst[i]*dst[i];
+      }
       // fade in/out to avoid clicks
       const fade = Math.min(128, Math.floor(buf.length * 0.05));
       for (let i = 0; i < fade; i++) { dst[i] *= i/fade; dst[buf.length-1-i] *= i/fade; }
     }
-    const section = start < dur*0.2 ? 'intro' : start < dur*0.5 ? 'build' : start < dur*0.8 ? 'drop' : 'outro';
+    
+    const sliceRMS = Math.sqrt(sliceSumSq / (buf.length / 10));
+    const ratio = sliceRMS / trackRMS;
+    const pos = start / dur; // 0.0 to 1.0
+
+    let section = 'unknown';
+    if (ratio > 1.3) {
+      section = 'drop'; // Peak energy
+    } else if (ratio > 0.95) {
+      if (pos > 0.65 && pos < 0.85) section = 'bridge';
+      else if (pos > 0.2 && pos < 0.5) section = 'build';
+      else section = 'verse';
+    } else if (ratio > 0.5) {
+      if (pos < 0.15) section = 'intro';
+      else if (pos > 0.85) section = 'outro';
+      else if (pos > 0.4 && pos < 0.7) section = 'breakdown';
+      else section = 'verse';
+    } else {
+      if (pos < 0.2) section = 'intro';
+      else if (pos > 0.8) section = 'outro';
+      else section = 'breakdown'; // Very quiet middle
+    }
+
     const filename = `${safeName}_${type}_${String(idx).padStart(3,'0')}.wav`;
     result.push({ id: `${sourceId}_${type}_${Math.round(start*100)}`, source: sourceName, sourceId, type, label, start, end, duration: len, bpm, section, buffer: buf, filename });
   };
@@ -837,12 +1134,20 @@ async function extractSlices(audioBuffer, bpm, sourceName, sourceId, modes) {
   const getHits = (buf, threshold, type, label) => {
     const data = buf.getChannelData(0);
     let lastHit = -1, hitIdx = 0;
+    let env = 0;
     for (let i = 1; i < data.length-1; i++) {
       const t = i / sr;
-      if (Math.abs(data[i]) > threshold && Math.abs(data[i]) > Math.abs(data[i-1])*1.8 && t - lastHit > 0.15) {
-        const snap = Math.round(t / (beatLen*0.25)) * (beatLen*0.25);
-        addSlice(snap, snap+beatLen*0.5, type, label, hitIdx++, buf);
-        lastHit = t; i += Math.floor(sr*0.1);
+      const vol = Math.abs(data[i]);
+      env = env * 0.95 + vol * 0.05; // Quick envelope follower
+      
+      // Trigger if current sample is above threshold, much louder than envelope, and >150ms since last hit
+      if (vol > threshold && vol > env * 2.5 && t - lastHit > 0.15) {
+        // Start slice slightly before the peak to capture the full transient
+        const hitStart = Math.max(0, t - 0.01);
+        addSlice(hitStart, hitStart + beatLen*0.5, type, label, hitIdx++, buf);
+        lastHit = t; 
+        i += Math.floor(sr*0.15); // skip 150ms to avoid double triggers
+        env = vol; // reset envelope to peak
       }
     }
   };
@@ -853,36 +1158,26 @@ async function extractSlices(audioBuffer, bpm, sourceName, sourceId, modes) {
     const data = audioBuffer.getChannelData(0);
     const threshold = 0.05; 
     let isSilent = true; let startT = 0; let idx = 0;
+    let silenceStartIdx = -1;
     for (let i = 0; i < data.length; i++) {
       const vol = Math.abs(data[i]);
-      if (isSilent && vol > threshold) { isSilent = false; startT = i/sr; }
-      else if (!isSilent && vol <= threshold) {
-        // Look ahead to check if it's sustained silence
-        let silentCount = 0;
-        for (let j = 0; j < sr * 0.2 && i+j < data.length; j++) { if (Math.abs(data[i+j]) <= threshold) silentCount++; }
-        if (silentCount > sr * 0.18) { // 180ms of silence
-          if (i/sr - startT > 0.2) { addSlice(startT, i/sr, 'silence', `${sourceName} · chunk`, idx++); }
-          isSilent = true; i += sr * 0.2; // skip forward
+      if (isSilent) {
+        if (vol > threshold) { isSilent = false; startT = i/sr; silenceStartIdx = -1; }
+      } else {
+        if (vol <= threshold) {
+          if (silenceStartIdx === -1) silenceStartIdx = i;
+          else if (i - silenceStartIdx > sr * 0.18) { // 180ms of silence
+            if (i/sr - startT > 0.2) { addSlice(startT, silenceStartIdx/sr, 'silence', `${sourceName} · chunk`, idx++); }
+            isSilent = true;
+          }
+        } else {
+          silenceStartIdx = -1;
         }
       }
     }
-  }
-
-  const applyFilter = async (type, freq) => {
-    const off = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length, sr);
-    const src = off.createBufferSource(); src.buffer = audioBuffer;
-    const filter = off.createBiquadFilter(); filter.type = type; filter.frequency.value = freq;
-    src.connect(filter); filter.connect(off.destination); src.start();
-    return await off.startRendering();
-  };
-
-  if (modes.includes('freqLow')) {
-    const lowBuf = await applyFilter('lowpass', 150);
-    getHits(lowBuf, 0.4, 'hit_low', `${sourceName} · low`);
-  }
-  if (modes.includes('freqHigh')) {
-    const highBuf = await applyFilter('highpass', 4000);
-    getHits(highBuf, 0.2, 'hit_high', `${sourceName} · high`);
+    if (!isSilent && data.length/sr - startT > 0.2) {
+      addSlice(startT, data.length/sr, 'silence', `${sourceName} · chunk`, idx++);
+    }
   }
 
   return result;
@@ -893,21 +1188,57 @@ function renderSliceLibrary(filter) {
   grid.innerHTML = '';
   const f = filter || currentFilter;
   const show = f === 'all' ? slices : slices.filter(s => s.type === f || (f==='phrase' && s.type==='phrase') || (f==='bar' && s.type==='bar') || (f==='beat' && s.type==='beat') || (f==='hit' && s.type==='hit') || (f==='eighth' && s.type==='eighth'));
+  
+  const sections = {};
   for (const s of show) {
-    const el = document.createElement('div');
-    el.className = 'slice-card' + (selectedSlice?.id === s.id ? ' selected' : '');
-    el.onclick = () => selectSlice(s, el);
-    el.draggable = true;
-    el.addEventListener('dragstart', e => { e.dataTransfer.setData('sliceId', s.id); });
-    el.innerHTML = `<button class="slice-dl" title="Download" onclick="event.stopPropagation();downloadSlice('${s.id}')">↓</button>
-      <div class="slice-type">${s.type}</div>
-      <div class="slice-name">${s.source}</div>
-      <div class="slice-tags">
-        <span class="tag bpm">${s.bpm}</span>
-        <span class="tag type">${s.section}</span>
-        <span class="tag">${Math.round(s.duration*10)/10}s</span>
-      </div>`;
-    grid.appendChild(el);
+    if (!sections[s.section]) sections[s.section] = [];
+    sections[s.section].push(s);
+  }
+
+  const secOrder = ['intro', 'verse', 'build', 'drop', 'breakdown', 'bridge', 'outro', 'unknown'];
+  const availableSecs = Object.keys(sections).sort((a,b) => {
+    let ia = secOrder.indexOf(a); if(ia===-1) ia=99;
+    let ib = secOrder.indexOf(b); if(ib===-1) ib=99;
+    return ia - ib;
+  });
+
+  for (const sec of availableSecs) {
+    const secTitle = document.createElement('div');
+    secTitle.className = 'section-title';
+    secTitle.style.width = '100%';
+    secTitle.style.marginBottom = '8px';
+    secTitle.style.marginTop = '10px';
+    secTitle.style.color = '#42f5a4';
+    secTitle.textContent = sec.toUpperCase();
+    grid.appendChild(secTitle);
+    
+    const secGrid = document.createElement('div');
+    secGrid.style.display = 'grid';
+    secGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(130px, 1fr))';
+    secGrid.style.gap = '6px';
+    secGrid.style.marginBottom = '20px';
+    secGrid.style.width = '100%';
+    // span full width in the main grid
+    secGrid.style.gridColumn = '1 / -1';
+    secTitle.style.gridColumn = '1 / -1';
+    
+    for (const s of sections[sec]) {
+      const el = document.createElement('div');
+      el.className = 'slice-card' + (selectedSlice?.id === s.id ? ' selected' : '');
+      el.onclick = () => selectSlice(s, el);
+      el.draggable = true;
+      el.addEventListener('dragstart', e => { e.dataTransfer.setData('sliceId', s.id); });
+      el.innerHTML = `<button class="slice-dl" title="Download" onclick="event.stopPropagation();downloadSlice('${s.id}')">↓</button>
+        <div class="slice-type">${s.type}</div>
+        <div class="slice-name">${s.source}</div>
+        <div class="slice-tags">
+          <span class="tag bpm">${s.bpm}</span>
+          <span class="tag type">${s.section}</span>
+          <span class="tag">${Math.round(s.duration*10)/10}s</span>
+        </div>`;
+      secGrid.appendChild(el);
+    }
+    grid.appendChild(secGrid);
   }
 }
 
@@ -926,7 +1257,9 @@ function selectSlice(slice, el) {
   wrap.style.display = '';
   drawWaveform(slice.buffer);
   const blob = bufferToWavBlob(slice.buffer);
-  document.getElementById('preview-audio').src = URL.createObjectURL(blob);
+  const audio = document.getElementById('preview-audio');
+  audio.src = URL.createObjectURL(blob);
+  audio.play().catch(e => console.log('Playback prevented:', e));
 }
 
 function drawWaveform(buf) {
@@ -1006,14 +1339,19 @@ function setupPads() {
 
 function renderPadSliceList() {
   const list = document.getElementById('slice-drop-list');
-  if (slices.length === 0) { list.innerHTML = '<p style="font-size:11px;color:var(--muted)">Slice some songs first</p>'; return; }
+  if (userSelectedSlices.length === 0) { 
+    list.innerHTML = '<p style="font-size:11px;color:var(--muted)">Build your pad bank in the Slicer tab first</p>'; 
+    return; 
+  }
   list.innerHTML = '';
-  slices.forEach((s, idx) => {
+  userSelectedSlices.forEach((s, idx) => {
     const el = document.createElement('div');
     el.className = 'slice-drop-item';
     el.draggable = true;
     el.addEventListener('dragstart', e => e.dataTransfer.setData('sliceId', s.id));
     const col = PAD_COLORS[idx % PAD_COLORS.length];
+    el.onclick = () => openRefinementEditor(s);
+    el.style.cursor = 'pointer';
     el.innerHTML = `<div class="slice-dot" style="background:${col}"></div>
       <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.source} · ${s.type}</span>
       <span class="slice-drop-meta">${Math.round(s.duration*10)/10}s</span>`;
@@ -1166,6 +1504,165 @@ function bufferToWavBlob(buffer) {
   return new Blob([ab],{type:'audio/wav'});
 }
 
+// REFINEMENT LOGIC
+let refSlice = null;
+let refStartRatio = 0;
+let refEndRatio = 1;
+let isDraggingMarker = null;
+let refAudioSource = null;
+
+function openRefinementEditor(slice) {
+  refSlice = slice;
+  refStartRatio = 0;
+  refEndRatio = 1;
+  document.getElementById('refinement-editor').classList.add('active');
+  document.getElementById('ref-name-input').value = slice.source;
+  
+  const canvas = document.getElementById('ref-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const data = slice.buffer.getChannelData(0);
+  const step = Math.ceil(data.length / canvas.width);
+  const amp = canvas.height / 2;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < canvas.width; i++) {
+    let max = 0;
+    for (let j = 0; j < step; j++) { const v = Math.abs(data[i*step+j]||0); if(v>max) max=v; }
+    ctx.moveTo(i, amp - max*amp*0.9); ctx.lineTo(i, amp + max*amp*0.9);
+  }
+  ctx.stroke();
+  
+  updateRefinementMarkers();
+}
+
+function updateRefinementMarkers() {
+  document.getElementById('ref-marker-start').style.left = (refStartRatio * 100) + '%';
+  document.getElementById('ref-marker-end').style.left = (refEndRatio * 100) + '%';
+  document.getElementById('ref-overlay-start').style.width = (refStartRatio * 100) + '%';
+  document.getElementById('ref-overlay-end').style.width = ((1 - refEndRatio) * 100) + '%';
+}
+
+function stopRefPlayback() {
+  if (refAudioSource) {
+    try { refAudioSource.stop(); } catch(e) {}
+    refAudioSource = null;
+  }
+}
+
+document.getElementById('ref-play-btn').onclick = () => {
+  if (!refSlice) return;
+  stopRefPlayback();
+  if (!actx) actx = new AudioContext();
+  
+  const startT = refStartRatio * refSlice.duration;
+  const endT = refEndRatio * refSlice.duration;
+  
+  refAudioSource = actx.createBufferSource();
+  refAudioSource.buffer = refSlice.buffer;
+  refAudioSource.connect(actx.destination);
+  refAudioSource.start(0, startT, endT - startT);
+};
+
+document.getElementById('ref-save-btn').onclick = () => {
+  if (!refSlice) return;
+  stopRefPlayback();
+  
+  const startT = refStartRatio * refSlice.duration;
+  const endT = refEndRatio * refSlice.duration;
+  const newLen = endT - startT;
+  if (newLen <= 0.05) { alert('Trim too short!'); return; }
+  
+  const sr = refSlice.buffer.sampleRate;
+  const ch = refSlice.buffer.numberOfChannels;
+  const newBuf = actx.createBuffer(ch, Math.max(1, Math.floor(newLen * sr)), sr);
+  
+  for (let c = 0; c < ch; c++) {
+    const src = refSlice.buffer.getChannelData(c);
+    const dst = newBuf.getChannelData(c);
+    const offset = Math.floor(startT * sr);
+    for (let i = 0; i < newBuf.length; i++) dst[i] = src[offset + i] || 0;
+    
+    // Quick fade to prevent clicks
+    const fade = Math.min(128, Math.floor(newBuf.length * 0.05));
+    for (let i = 0; i < fade; i++) { dst[i] *= i/fade; dst[newBuf.length-1-i] *= i/fade; }
+  }
+  
+  refSlice.buffer = newBuf;
+  refSlice.duration = newLen;
+  refSlice.source = document.getElementById('ref-name-input').value;
+  refSlice.filename = refSlice.source.replace(/[^a-zA-Z0-9_-]/g, '_') + '_trimmed.wav';
+  
+  // Re-render things that use this slice
+  renderUserSlices();
+  renderPadSliceList();
+  
+  // Update pad assignments if it's there
+  for (let i = 0; i < pads.length; i++) {
+    if (pads[i] && pads[i].id === refSlice.id) {
+      assignSliceToPad(refSlice.id, i);
+    }
+  }
+  
+  // Reset markers
+  openRefinementEditor(refSlice);
+  setStatus('Slice trimmed and saved');
+};
+
+document.getElementById('ref-dl-btn').onclick = () => {
+  if (!refSlice) return;
+  const blob = bufferToWavBlob(refSlice.buffer);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = refSlice.filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+const refCont = document.getElementById('ref-canvas-cont');
+refCont.addEventListener('mousedown', e => {
+  if (!refSlice) return;
+  const rect = refCont.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const ratio = x / rect.width;
+  
+  // Determine which marker is closer
+  const distStart = Math.abs(ratio - refStartRatio);
+  const distEnd = Math.abs(ratio - refEndRatio);
+  
+  if (distStart < distEnd) isDraggingMarker = 'start';
+  else isDraggingMarker = 'end';
+  
+  updateMarkerDrag(e);
+});
+
+window.addEventListener('mousemove', e => {
+  if (!isDraggingMarker) return;
+  updateMarkerDrag(e);
+});
+
+window.addEventListener('mouseup', () => {
+  isDraggingMarker = null;
+});
+
+function updateMarkerDrag(e) {
+  const rect = refCont.getBoundingClientRect();
+  let x = e.clientX - rect.left;
+  x = Math.max(0, Math.min(x, rect.width));
+  let ratio = x / rect.width;
+  
+  if (isDraggingMarker === 'start') {
+    if (ratio > refEndRatio - 0.05) ratio = refEndRatio - 0.05;
+    refStartRatio = ratio;
+  } else if (isDraggingMarker === 'end') {
+    if (ratio < refStartRatio + 0.05) ratio = refStartRatio + 0.05;
+    refEndRatio = ratio;
+  }
+  updateRefinementMarkers();
+}
+
 /* TUTORIAL LOGIC */
 let tutStep = 1;
 function initTutorial() {
@@ -1208,9 +1705,9 @@ function closeTut() {
   <div class="tut-modal">
     <!-- Step 1 -->
     <div class="tut-step active" id="tut-step-1">
-      <div class="tut-title"><div class="tut-dot"></div> Welcome to VØID 1.0</div>
+      <div class="tut-title"><div class="tut-dot"></div> Welcome to VØID 1.2</div>
       <div class="tut-text">
-        <strong>VØID 1.0</strong> is an advanced, fully offline audio slicer and remixer. It runs entirely in your browser without any cloud processing. <br><br>
+        <strong>VØID 1.2</strong> is an advanced, fully offline audio slicer and remixer. It runs entirely in your browser without any cloud processing. <br><br>
         It was built to help you rapidly break down stems, isolate precise hits, and recombine them into something entirely new.
       </div>
     </div>
@@ -1251,7 +1748,7 @@ function closeTut() {
 
 <div class="about-overlay" id="about-overlay" onclick="if(event.target===this) this.classList.remove('active')">
   <div class="about-modal">
-    <h3>VØID 1.0</h3>
+    <h3>VØID 1.2</h3>
     <p>Copyright © Justin Ray<br>Version 1.23 · Created 04/2026</p>
     <p style="margin-top:12px">For more visit:<br><a href="https://jray.me/projects" target="_blank" rel="noopener">https://jray.me/projects</a></p>
     <button class="about-close" onclick="document.getElementById('about-overlay').classList.remove('active')">Close</button>
