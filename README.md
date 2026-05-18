@@ -2,7 +2,7 @@
 
 **Slice and dice.** The hyper-fast offline audio slicer and algorithmic remixer.
 
-![VØID 1.2 Highlight Reel](void_highlight_reel.webp)
+![VØID 1.2 Highlight Reel](assets/void_highlight_reel.webp)
 
 ## What is VØID 1.2?
 
@@ -58,7 +58,7 @@ npm run build
 
 ### 2. Standalone Web App
 Prefer the browser? You can run VØID seamlessly in any modern web browser.
-* Open `index.html` located in the `Standalone_Web_App` folder.
+* Open `src/index.html`.
 * Drag and drop your audio files into the interface and start slicing.
 
 ---

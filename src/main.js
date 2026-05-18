@@ -7,7 +7,7 @@ function createWindow() {
     height: 750,
     minWidth: 900,
     minHeight: 600,
-    icon: path.join(__dirname, 'void_icon.ico'),
+    icon: path.join(__dirname, '../assets/void_icon.ico'),
     autoHideMenuBar: true, // Hides the default File/Edit/View menu
     webPreferences: {
       nodeIntegration: false,
@@ -15,7 +15,7 @@ function createWindow() {
     }
   });
 
-  win.loadFile('index.html');
+  win.loadFile(path.join(__dirname, 'index.html'));
 }
 
 app.whenReady().then(() => {
