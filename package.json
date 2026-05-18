@@ -2,7 +2,7 @@
   "name": "void",
   "version": "1.2.0",
   "description": "VØID 1.2 — Offline Audio Slicer & Remixer",
-  "main": "main.js",
+  "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win"
@@ -13,13 +13,13 @@
     "appId": "com.jray.void",
     "productName": "VØID",
     "files": [
-      "main.js",
-      "index.html",
-      "void_icon.ico"
+      "src/main.js",
+      "src/index.html",
+      "assets/void_icon.ico"
     ],
     "win": {
       "target": "portable",
-      "icon": "void_icon.ico"
+      "icon": "assets/void_icon.ico"
     },
     "portable": {
       "artifactName": "VOID_1.2_Portable.exe"
